@@ -53,6 +53,15 @@ header {
   font-size: 11px; color: var(--blue-300);
   white-space: nowrap;
 }
+.btn-back {
+  display: grid; place-items: center;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  color: var(--blue-300);
+  flex-shrink: 0;
+  transition: color .15s, background .15s;
+}
+.btn-back:hover { color: var(--white); background: rgba(255,255,255,.1); }
 .header-spacer { flex: 1; }
 #status-indicator {
   font-size: 12px; color: var(--blue-300);

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centro Médico San Lucas — Patologías</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <a href="index.html" class="btn-back" title="Volver al dashboard">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px">
+      <path d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <img src="img/logo_cmsl.png" alt="Centro Médico San Lucas" class="header-logo">
+  <span class="header-subtitle">Gestión de Patologías</span>
+  <div class="header-spacer"></div>
+  <div id="status-indicator">
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-label">Esperando…</span>
+  </div>
+</header>
+
+<!-- ── BODY ── -->
+<div class="app-body" id="app-body">
+  <main>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Buscar…" autocomplete="off">
+      </div>
+      <div class="search-type">
+        <label><input type="radio" name="stype" value="folio" checked><span>Folio</span></label>
+        <label><input type="radio" name="stype" value="expediente"><span>Expediente</span></label>
+        <label><input type="radio" name="stype" value="nombre"><span>Nombre</span></label>
+      </div>
+      <button class="btn btn-primary" id="btn-search">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        Buscar
+      </button>
+      <button class="btn btn-outline" id="btn-all">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        Ver todos
+      </button>
+      <button class="btn btn-new" id="btn-new">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 4v16m8-8H4"/>
+        </svg>
+        Nuevo
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats-bar" style="display:none">
+      <div class="stat-chip">Registros mostrados: <strong id="stat-count">0</strong></div>
+    </div>
+
+    <!-- Table card -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table id="records-table">
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Expediente</th>
+              <th>Nombre del Paciente</th>
+              <th>Nivel o Tipo de Patología</th>
+              <th>Fecha de entrega</th>
+              <th>Fecha de recepción de resultados</th>
+              <th>Patología Física Recibida</th>
+              <th>Requiere Cita</th>
+              <th>Fecha Cita</th>
+              <th>Enviado a Paciente</th>
+              <th>Monto</th>
+              <th>Fecha Pago Contabilidad</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="12">
+              <div class="state-box">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
+                </svg>
+                <p>Ingresa un término y presiona <strong>Buscar</strong>, o presiona <strong>Ver todos</strong> para cargar los registros.</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── SIDE PANEL ── -->
+  <div id="side-panel">
+    <div class="panel-header">
+      <div class="panel-header-info">
+        <h2 id="panel-title">Editar Registro</h2>
+        <p id="panel-subtitle">Folio —</p>
+      </div>
+      <button id="btn-close-panel" title="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-body"></div>
+    <div class="panel-footer">
+      <button class="btn btn-cancel" id="btn-cancel-edit">Cancelar</button>
+      <button class="btn btn-save" id="btn-save-edit">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px">
+          <path d="M5 13l4 4L19 7"/>
+        </svg>
+        Guardar cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
