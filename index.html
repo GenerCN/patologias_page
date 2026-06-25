@@ -589,7 +589,20 @@ async function apiUpdateField(folio, field, value) {
   const sheetField = KEY_MAP[field] || field;
   const url = `${API_URL}?action=update&folio=${encodeURIComponent(folio)}&field=${encodeURIComponent(sheetField)}&value=${encodeURIComponent(value)}`;
   const response = await fetch(url);
-  const data = await response.json();
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error('La respuesta del servidor no es JSON válido');
+  }
+
+  // Apps Script returns { success: true } on success, or { error: "..." } on failure
+  if (data.error) throw new Error(data.error);
+  if (!data.success) throw new Error(JSON.stringify(data));
+
   return data;
 }
 
@@ -641,7 +654,6 @@ async function saveRecord(original, updated) {
   }
 
   try {
-    // Send one GET request per changed field
     for (const f of changed) {
       await apiUpdateField(folio, f.key, updated[f.key] ?? '');
     }
@@ -659,7 +671,9 @@ async function saveRecord(original, updated) {
     }
   } catch(e) {
     setStatus('error', 'Error al guardar');
-    showToast('No se pudo guardar. Revisa la conexión.', true);
+    // Show the actual error so we can diagnose the Apps Script response
+    showToast(`Error al guardar: ${e.message}`, true);
+    console.error('[saveRecord]', e);
   }
 }
 
