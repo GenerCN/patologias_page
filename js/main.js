@@ -1,8 +1,8 @@
 import { FIELDS } from './config.js';
 import { setStatus, showToast, normalizeRecord } from './utils.js';
-import { apiFetch, apiUpdateField } from './api.js';
+import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable } from './table.js';
-import { openPanel, closePanel, collectPanelValues, getActiveRecord } from './panel.js';
+import { openPanel, openNewPanel, closePanel, collectPanelValues, getActiveRecord, isNewRecord } from './panel.js';
 
 let allRecords = [];
 
@@ -76,8 +76,29 @@ async function saveRecord(original, updated) {
   }
 }
 
+async function createRecord(data) {
+  const folio = (data.folio || '').trim();
+  if (!folio) {
+    showToast('El Folio es obligatorio para crear un registro.', true);
+    return;
+  }
+
+  setStatus('loading', 'Creando…');
+  try {
+    await apiCreateRecord(data);
+    setStatus('online', 'Creado');
+    showToast('Registro creado correctamente.');
+    await loadAll();
+  } catch (e) {
+    setStatus('error', 'Error al crear');
+    showToast(`Error al crear: ${e.message}`, true);
+    console.error('[createRecord]', e);
+  }
+}
+
 /* ── Event listeners ─────────────────────────────── */
 document.getElementById('btn-all').addEventListener('click', loadAll);
+document.getElementById('btn-new').addEventListener('click', openNewPanel);
 
 document.getElementById('btn-search').addEventListener('click', () => {
   const q = document.getElementById('search-input').value.trim();
@@ -94,12 +115,16 @@ document.getElementById('btn-close-panel').addEventListener('click', closePanel)
 document.getElementById('btn-cancel-edit').addEventListener('click', closePanel);
 
 document.getElementById('btn-save-edit').addEventListener('click', () => {
-  const record = getActiveRecord();
-  if (!record) return;
-  const original = { ...record };
-  const updated  = collectPanelValues();
+  const record   = getActiveRecord();
+  const creating = isNewRecord();
+  if (record === null && !creating) return;
+  const values = collectPanelValues();
   closePanel();
-  saveRecord(original, updated);
+  if (creating) {
+    createRecord(values);
+  } else {
+    saveRecord({ ...record }, values);
+  }
 });
 
 document.addEventListener('keydown', e => {

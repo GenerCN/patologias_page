@@ -3,20 +3,12 @@ import { escHtml } from './utils.js';
 
 let activeRow    = null;
 let activeRecord = null;
+let isNew        = false;
 
 export function getActiveRecord() { return activeRecord; }
+export function isNewRecord()     { return isNew; }
 
-export function openPanel(record, tr) {
-  if (activeRow) activeRow.classList.remove('active');
-  activeRow    = tr;
-  activeRecord = record;
-  tr.classList.add('active');
-
-  document.getElementById('panel-title').textContent =
-    record.nombre_paciente || 'Sin nombre';
-  document.getElementById('panel-subtitle').textContent =
-    'Folio: ' + (record.folio || '—') + ' · Exp: ' + (record.expediente || '—');
-
+function buildPanelBody(record) {
   const body = document.querySelector('#side-panel .panel-body');
   let html = '<div class="fields-grid">';
   let lastSection = null;
@@ -52,6 +44,40 @@ export function openPanel(record, tr) {
 
   html += '</div>';
   body.innerHTML = html;
+}
+
+export function openPanel(record, tr) {
+  isNew = false;
+  if (activeRow) activeRow.classList.remove('active');
+  activeRow    = tr;
+  activeRecord = record;
+  tr.classList.add('active');
+
+  document.getElementById('panel-title').textContent =
+    record.nombre_paciente || 'Sin nombre';
+  document.getElementById('panel-subtitle').textContent =
+    'Folio: ' + (record.folio || '—') + ' · Exp: ' + (record.expediente || '—');
+  document.getElementById('btn-save-edit').innerHTML =
+    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M5 13l4 4L19 7"/></svg> Guardar cambios`;
+
+  buildPanelBody(record);
+
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('app-body').classList.add('panel-open');
+}
+
+export function openNewPanel() {
+  isNew = true;
+  if (activeRow) activeRow.classList.remove('active');
+  activeRow    = null;
+  activeRecord = {};
+
+  document.getElementById('panel-title').textContent    = 'Nuevo Registro';
+  document.getElementById('panel-subtitle').textContent = 'Complete los campos y guarde';
+  document.getElementById('btn-save-edit').innerHTML =
+    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M12 4v16m8-8H4"/></svg> Crear registro`;
+
+  buildPanelBody({});
 
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('app-body').classList.add('panel-open');
@@ -62,6 +88,7 @@ export function closePanel() {
   document.getElementById('app-body').classList.remove('panel-open');
   if (activeRow) { activeRow.classList.remove('active'); activeRow = null; }
   activeRecord = null;
+  isNew        = false;
 }
 
 export function collectPanelValues() {

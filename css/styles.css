@@ -143,6 +143,8 @@ main {
   border: 1.5px solid var(--blue-300);
 }
 .btn-outline:hover { background: var(--blue-100); }
+.btn-new  { background: var(--green); color: var(--white); }
+.btn-new:hover { background: #15803d; }
 .btn svg { width: 15px; height: 15px; }
 
 /* ── Stats bar ───────────────────────────────────── */

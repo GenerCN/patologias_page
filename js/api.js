@@ -1,6 +1,30 @@
 import { API_URL, KEY_MAP } from './config.js';
 import { setStatus } from './utils.js';
 
+export async function apiCreateRecord(data) {
+  const url = new URL(API_URL);
+  url.searchParams.set('action', 'create');
+  Object.entries(data).forEach(([key, value]) => {
+    const sheetField = KEY_MAP[key];
+    if (sheetField) url.searchParams.set(sheetField, value ?? '');
+  });
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error('La respuesta del servidor no es JSON válido');
+  }
+
+  if (result.error)    throw new Error(result.error);
+  if (!result.success) throw new Error(JSON.stringify(result));
+
+  return result;
+}
+
 export async function apiFetch(params) {
   setStatus('loading', 'Conectando…');
   const url = new URL(API_URL);
