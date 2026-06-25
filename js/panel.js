@@ -8,7 +8,7 @@ let isNew        = false;
 export function getActiveRecord() { return activeRecord; }
 export function isNewRecord()     { return isNew; }
 
-function buildPanelBody(record) {
+function buildPanelBody(record, readonlyFolio = false) {
   const body = document.querySelector('#side-panel .panel-body');
   let html = '<div class="fields-grid">';
   let lastSection = null;
@@ -36,6 +36,8 @@ function buildPanelBody(record) {
         dval = isNaN(d) ? val : d.toISOString().slice(0, 10);
       }
       html += `<input type="date" id="fe-${f.key}" name="${f.key}" value="${dval}">`;
+    } else if (readonlyFolio && f.key === 'folio') {
+      html += `<input type="text" id="fe-${f.key}" name="${f.key}" value="${escHtml(val)}" readonly class="field-readonly">`;
     } else {
       html += `<input type="text" id="fe-${f.key}" name="${f.key}" value="${escHtml(val)}">`;
     }
@@ -60,7 +62,7 @@ export function openPanel(record, tr) {
   document.getElementById('btn-save-edit').innerHTML =
     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M5 13l4 4L19 7"/></svg> Guardar cambios`;
 
-  buildPanelBody(record);
+  buildPanelBody(record, true);
 
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('app-body').classList.add('panel-open');

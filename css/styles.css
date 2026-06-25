@@ -297,6 +297,11 @@ td.folio { font-weight: 700; color: var(--blue-700); }
   box-shadow: 0 0 0 3px rgba(46,120,212,.12);
 }
 .field-group textarea { resize: vertical; min-height: 68px; }
+.field-readonly {
+  background: var(--gray-100) !important;
+  color: var(--gray-500) !important;
+  cursor: not-allowed;
+}
 
 .fields-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px;
