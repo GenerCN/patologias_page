@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centro Médico San Lucas — Iniciar sesión</title>
+  <style>
+    :root {
+      --blue-900: #0A2540;
+      --blue-700: #1C4B82;
+      --blue-500: #2E78D4;
+      --blue-300: #7DB4ED;
+      --blue-100: #E8F2FC;
+      --blue-50:  #F2F7FD;
+      --white:    #FFFFFF;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F3F4F6;
+      --red:      #DC2626;
+      --red-bg:   #FEE2E2;
+      --shadow-md: 0 4px 16px rgba(10,37,64,.12);
+      --shadow-lg: 0 8px 32px rgba(10,37,64,.18);
+      --radius: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--blue-50);
+      color: var(--gray-700);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    /* ── Card ── */
+    .login-card {
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 380px;
+      overflow: hidden;
+    }
+
+    .login-header {
+      background: var(--blue-900);
+      padding: 28px 32px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .login-header img {
+      height: 48px;
+      width: auto;
+      filter: brightness(0) invert(1);
+    }
+    .login-header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--white);
+      text-align: center;
+    }
+    .login-header p {
+      font-size: 12px;
+      color: var(--blue-300);
+      text-align: center;
+    }
+
+    .login-body {
+      padding: 28px 32px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--gray-500);
+    }
+    .field input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--gray-300);
+      border-radius: var(--radius);
+      font-size: 14px;
+      color: var(--gray-700);
+      background: var(--white);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input:focus {
+      border-color: var(--blue-500);
+      box-shadow: 0 0 0 3px rgba(46,120,212,.15);
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 11px;
+      background: var(--blue-700);
+      color: var(--white);
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .18s, transform .1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-login:hover   { background: var(--blue-900); }
+    .btn-login:active  { transform: scale(.98); }
+    .btn-login:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    /* ── Spinner inside button ── */
+    .btn-spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: var(--white);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error message ── */
+    .error-msg {
+      background: var(--red-bg);
+      color: var(--red);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+
+    .login-footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--gray-500);
+      padding-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-header">
+    <img src="img/logo_cmsl.png" alt="Centro Médico San Lucas">
+    <h1>Centro Médico San Lucas</h1>
+    <p>Sistema de Gestión Interna</p>
+  </div>
+
+  <div class="login-body">
+    <div id="error-msg" class="error-msg"></div>
+
+    <div class="field">
+      <label for="usuario">Usuario</label>
+      <input type="text" id="usuario" placeholder="Ingresa tu usuario" autocomplete="username" autofocus>
+    </div>
+
+    <div class="field">
+      <label for="clave">Contraseña</label>
+      <input type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn-login" id="btn-login">
+      <span class="btn-spinner" id="spinner"></span>
+      <span id="btn-text">Iniciar sesión</span>
+    </button>
+
+    <p class="login-footer">Acceso restringido al personal autorizado</p>
+  </div>
+</div>
+
+<script type="module">
+  import { login, getSession } from './js/auth.js';
+
+  // If already logged in, go straight to dashboard
+  if (getSession()) {
+    window.location.replace('index.html');
+  }
+
+  const usuarioEl = document.getElementById('usuario');
+  const claveEl   = document.getElementById('clave');
+  const btnLogin  = document.getElementById('btn-login');
+  const spinner   = document.getElementById('spinner');
+  const btnText   = document.getElementById('btn-text');
+  const errorMsg  = document.getElementById('error-msg');
+
+  function setLoading(on) {
+    btnLogin.disabled    = on;
+    spinner.style.display = on ? 'block' : 'none';
+    btnText.textContent  = on ? 'Verificando…' : 'Iniciar sesión';
+  }
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('show');
+  }
+
+  function clearError() {
+    errorMsg.classList.remove('show');
+  }
+
+  async function submit() {
+    const usuario = usuarioEl.value.trim();
+    const clave   = claveEl.value;
+
+    if (!usuario || !clave) {
+      showError('Ingresa tu usuario y contraseña.');
+      return;
+    }
+
+    clearError();
+    setLoading(true);
+
+    try {
+      await login(usuario, clave);
+      window.location.replace('index.html');
+    } catch (e) {
+      setLoading(false);
+      showError(e.message);
+      claveEl.value = '';
+      claveEl.focus();
+    }
+  }
+
+  btnLogin.addEventListener('click', submit);
+  claveEl.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  usuarioEl.addEventListener('keydown', e => { if (e.key === 'Enter') claveEl.focus(); });
+</script>
+
+</body>
+</html>
