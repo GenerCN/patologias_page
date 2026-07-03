@@ -1,4 +1,4 @@
-export const API_URL = 'https://script.google.com/macros/s/AKfycbxCizixBrUqO0EQ3K8cp2vmRcRxgFla66gb-3aIhSHNhCBuxK-L0lp6uMOZ6r3Ngm__/exec';
+export const API_URL = 'https://script.google.com/macros/s/AKfycbyfVxc0BWrZDIJtMBlShXxrL_JXpD3ZGzBP79hIc44p-ZXvTqQ3L4xbMxZn0HSIm2Su/exec';
 
 export const FIELDS = [
   { key: 'folio',            label: 'Folio',                              type: 'text',   section: 'Identificación' },
