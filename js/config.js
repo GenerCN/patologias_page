@@ -10,7 +10,7 @@ export const FIELDS = [
   { key: 'patologia_fisica', label: 'Fecha de recepción de resultados físicos', type: 'date', section: null },
   { key: 'requiere_cita',    label: 'Requiere Cita',                      type: 'select', options: ['', 'Sí', 'No'], section: 'Cita' },
   { key: 'fecha_cita',       label: 'Fecha Cita',                         type: 'date',   section: null },
-  { key: 'enviado_paciente', label: 'Enviado a Paciente',                 type: 'select', options: ['', 'Sí', 'No'], section: 'Seguimiento' },
+  { key: 'enviado_paciente', label: 'Fecha de envío a Paciente',                 type: 'date',   section: 'Seguimiento' },
   { key: 'monto',            label: 'Monto',                              type: 'text',   section: 'Contabilidad' },
   { key: 'fecha_pago',       label: 'Fecha Pago Contabilidad',            type: 'date',   section: null },
 ];
