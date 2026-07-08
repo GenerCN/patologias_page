@@ -7,7 +7,7 @@ export const FIELDS = [
   { key: 'nivel_patologia',  label: 'Nivel o Tipo de Patología',          type: 'text',   section: 'Patología' },
   { key: 'fecha_entrega',    label: 'Fecha de entrega',                   type: 'date',   section: null },
   { key: 'fecha_recepcion',  label: 'Fecha de recepción de resultados',   type: 'date',   section: null },
-  { key: 'patologia_fisica', label: 'Patología Física Recibida',          type: 'select', options: ['', 'Sí', 'No'], section: null },
+  { key: 'patologia_fisica', label: 'Fecha de recepción de resultados físicos', type: 'date', section: null },
   { key: 'requiere_cita',    label: 'Requiere Cita',                      type: 'select', options: ['', 'Sí', 'No'], section: 'Cita' },
   { key: 'fecha_cita',       label: 'Fecha Cita',                         type: 'date',   section: null },
   { key: 'enviado_paciente', label: 'Enviado a Paciente',                 type: 'select', options: ['', 'Sí', 'No'], section: 'Seguimiento' },
