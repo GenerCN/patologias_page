@@ -1,6 +1,38 @@
-import { API_URL } from './config.js';
+import { API_URL, PERMISSIONS } from './config.js';
 
 const SESSION_KEY = 'cmsl_session';
+
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function fetchWithRetry(url, retries = 2) {
+  let lastError;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok && (res.status === 404 || res.status >= 500) && i < retries) {
+        await delay(1500 * (i + 1));
+        continue;
+      }
+      return res;
+    } catch (e) {
+      lastError = e;
+      if (i < retries) await delay(1500 * (i + 1));
+    }
+  }
+  throw lastError ?? new Error('Error de red');
+}
+
+function normUser(s) {
+  return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+export function getEditableSections() {
+  const session = getSession();
+  if (!session) return [];
+  return PERMISSIONS[normUser(session.usuario)] || [];
+}
 
 export function getSession() {
   try {
@@ -25,16 +57,20 @@ export function logout() {
 }
 
 export async function login(usuario, clave) {
-  const url = `${API_URL}?action=login&usuario=${encodeURIComponent(usuario)}&clave=${encodeURIComponent(clave)}`;
-  const response = await fetch(url);
+  const url = new URL(API_URL);
+  url.searchParams.set('action',  'login');
+  url.searchParams.set('usuario', usuario);
+  url.searchParams.set('clave',   clave);
 
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const response = await fetchWithRetry(url.toString());
+
+  if (!response.ok) throw new Error(`El servicio no respondió (${response.status}). Intenta de nuevo.`);
 
   let data;
   try {
     data = await response.json();
   } catch {
-    throw new Error('La respuesta del servidor no es válida');
+    throw new Error('La respuesta del servidor no es válida. Intenta de nuevo.');
   }
 
   if (data.error) throw new Error(data.error);

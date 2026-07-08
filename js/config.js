@@ -15,6 +15,14 @@ export const FIELDS = [
   { key: 'fecha_pago',       label: 'Fecha Pago Contabilidad',            type: 'date',   section: null },
 ];
 
+// Secciones editables por usuario (coincide con section: en FIELDS)
+// La clave es el nombre de usuario en minúsculas sin acentos
+export const PERMISSIONS = {
+  farmacia:     ['Identificación', 'Patología', 'Cita'],
+  admision:     ['Cita', 'Seguimiento'],
+  contabilidad: ['Contabilidad'],
+};
+
 export const KEY_MAP = {
   folio:            'Folio',
   expediente:       'Expediente',
