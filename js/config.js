@@ -21,6 +21,7 @@ export const PERMISSIONS = {
   farmacia:     ['Identificación', 'Patología', 'Cita'],
   admision:     ['Cita', 'Seguimiento'],
   contabilidad: ['Contabilidad'],
+  admin:        ['Identificación', 'Patología', 'Cita', 'Seguimiento', 'Contabilidad'],
 };
 
 export const KEY_MAP = {

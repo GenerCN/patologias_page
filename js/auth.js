@@ -34,6 +34,13 @@ export function getEditableSections() {
   return PERMISSIONS[normUser(session.usuario)] || [];
 }
 
+export function canCreateRecord() {
+  const session = getSession();
+  if (!session) return false;
+  const key = normUser(session.usuario);
+  return key === 'farmacia' || key === 'admin';
+}
+
 export function getSession() {
   try {
     return JSON.parse(localStorage.getItem(SESSION_KEY));

@@ -3,6 +3,7 @@ import { setStatus, showToast, normalizeRecord } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable } from './table.js';
 import { openPanel, openNewPanel, closePanel, collectPanelValues, getActiveRecord, isNewRecord } from './panel.js';
+import { canCreateRecord } from './auth.js';
 
 let allRecords = [];
 
@@ -132,4 +133,7 @@ document.addEventListener('keydown', e => {
 });
 
 /* ── Init ────────────────────────────────────────── */
+if (!canCreateRecord()) {
+  document.getElementById('btn-new').style.display = 'none';
+}
 setStatus('', 'Listo');
