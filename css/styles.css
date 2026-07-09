@@ -166,6 +166,27 @@ main {
 .btn-new:hover { background: #15803d; }
 .btn svg { width: 15px; height: 15px; }
 
+/* ── Filter bar ──────────────────────────────────── */
+.filter-bar {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+.filter-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--gray-500); white-space: nowrap;
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 13px; font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--gray-300); border-radius: 20px;
+  cursor: pointer; background: var(--white); color: var(--gray-700);
+  transition: border-color .15s, background .15s, color .15s;
+}
+.filter-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+.filter-chip:hover { border-color: var(--blue-300); color: var(--blue-700); background: var(--blue-50); }
+.filter-chip.active { background: var(--blue-700); color: var(--white); border-color: var(--blue-700); }
+.filter-chip.active:hover { background: var(--blue-900); border-color: var(--blue-900); }
+
 /* ── Stats bar ───────────────────────────────────── */
 #stats-bar {
   display: flex; gap: 12px; flex-wrap: wrap;

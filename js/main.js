@@ -5,7 +5,24 @@ import { setTableLoading, showTableError, renderTable } from './table.js';
 import { openPanel, openNewPanel, closePanel, collectPanelValues, getActiveRecord, isNewRecord } from './panel.js';
 import { canCreateRecord } from './auth.js';
 
-let allRecords = [];
+let allRecords   = [];
+let activeFilter = null;
+
+const FILTERS = {
+  'pending-send':    r => Boolean(r.patologia_fisica) && !r.enviado_paciente,
+  'pending-payment': r => Boolean(r.patologia_fisica) && !r.fecha_pago,
+};
+
+function applyFilter(records) {
+  const fn = FILTERS[activeFilter];
+  return fn ? records.filter(fn) : records;
+}
+
+function updateFilterUI() {
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.filter === activeFilter);
+  });
+}
 
 async function loadAll() {
   setTableLoading();
@@ -13,10 +30,11 @@ async function loadAll() {
     const data = await apiFetch({ action: 'getAll' });
     const rows = Array.isArray(data) ? data : (data.records || data.data || []);
     allRecords  = rows.map(normalizeRecord);
-    renderTable(allRecords, openPanel);
+    const visible = applyFilter(allRecords);
+    renderTable(visible, openPanel);
     setStatus('online', `${allRecords.length} registros`);
     document.getElementById('stats-bar').style.display = 'flex';
-    document.getElementById('stat-count').textContent  = allRecords.length;
+    document.getElementById('stat-count').textContent  = visible.length;
   } catch (e) {
     setStatus('error', 'Error de conexión');
     showTableError(e.message);
@@ -30,10 +48,11 @@ async function loadSearch(type, query) {
     const data = await apiFetch({ action: 'search', type, query });
     const rows = Array.isArray(data) ? data : (data.records || data.data || []);
     allRecords  = rows.map(normalizeRecord);
-    renderTable(allRecords, openPanel);
+    const visible = applyFilter(allRecords);
+    renderTable(visible, openPanel);
     setStatus('online', `${allRecords.length} resultado(s)`);
     document.getElementById('stats-bar').style.display = 'flex';
-    document.getElementById('stat-count').textContent  = allRecords.length;
+    document.getElementById('stat-count').textContent  = visible.length;
   } catch (e) {
     setStatus('error', 'Error de conexión');
     showTableError(e.message);
@@ -130,6 +149,23 @@ document.getElementById('btn-save-edit').addEventListener('click', () => {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closePanel();
+});
+
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', async () => {
+    const filter = chip.dataset.filter;
+    activeFilter = activeFilter === filter ? null : filter;
+    updateFilterUI();
+
+    if (allRecords.length === 0) {
+      await loadAll();
+    } else {
+      const visible = applyFilter(allRecords);
+      renderTable(visible, openPanel);
+      document.getElementById('stats-bar').style.display = 'flex';
+      document.getElementById('stat-count').textContent  = visible.length;
+    }
+  });
 });
 
 /* ── Init ────────────────────────────────────────── */
