@@ -46,9 +46,12 @@ export function escHtml(s) {
 export function normalizeRecord(raw) {
   const rec = {};
   FIELDS.forEach(f => {
+    // 1. Clave interna directa
     if (raw[f.key] !== undefined) { rec[f.key] = raw[f.key]; return; }
-    const alias = Object.keys(KEY_MAP).find(k => KEY_MAP[k] === f.key);
-    if (alias && raw[alias] !== undefined) { rec[f.key] = raw[alias]; return; }
+    // 2. Nombre de columna en Google Sheets según KEY_MAP
+    const sheetCol = KEY_MAP[f.key];
+    if (sheetCol && raw[sheetCol] !== undefined) { rec[f.key] = raw[sheetCol]; return; }
+    // 3. Coincidencia por etiqueta (fallback)
     const labelMatch = Object.keys(raw).find(k =>
       k.toLowerCase().replace(/[^a-z0-9]/g, '') === f.label.toLowerCase().replace(/[^a-z0-9]/g, '')
     );
