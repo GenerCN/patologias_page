@@ -9,6 +9,7 @@ let allRecords   = [];
 let activeFilter = null;
 
 const FILTERS = {
+  'not-arrived':     r => !r.patologia_fisica,
   'pending-send':    r => Boolean(r.patologia_fisica) && !r.enviado_paciente,
   'pending-payment': r => Boolean(r.patologia_fisica) && !r.fecha_pago,
 };
