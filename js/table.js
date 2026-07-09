@@ -43,10 +43,10 @@ export function renderTable(records, onRowClick) {
       <td>${rec.nivel_patologia || '—'}</td>
       <td>${fmtDate(rec.fecha_entrega)   || '—'}</td>
       <td>${fmtDate(rec.fecha_recepcion) || '—'}</td>
-      <td>${pill(rec.patologia_fisica, 'Recibida', 'No recibida')}</td>
+      <td>${fmtDate(rec.patologia_fisica) || '—'}</td>
       <td>${pill(rec.requiere_cita)}</td>
       <td>${fmtDate(rec.fecha_cita) || '—'}</td>
-      <td>${pill(rec.enviado_paciente, 'Enviado', 'Pendiente')}</td>
+      <td>${fmtDate(rec.enviado_paciente) || '—'}</td>
       <td>${fmtMoney(rec.monto) || '—'}</td>
       <td>${fmtDate(rec.fecha_pago) || '—'}</td>
     </tr>
