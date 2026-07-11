@@ -63,7 +63,8 @@ async function loadSearch(type, query) {
 
 async function saveRecord(original, updated) {
   setStatus('loading', 'Guardando…');
-  const folio = updated.folio || original.folio;
+  const folio      = updated.folio      || original.folio;
+  const expediente = updated.expediente || original.expediente;
 
   const changed = FIELDS.filter(
     f => f.key !== 'folio' &&
@@ -78,7 +79,7 @@ async function saveRecord(original, updated) {
 
   try {
     for (const f of changed) {
-      await apiUpdateField(folio, f.key, updated[f.key] ?? '');
+      await apiUpdateField(folio, expediente, f.key, updated[f.key] ?? '');
     }
     setStatus('online', 'Guardado');
     showToast(`${changed.length} campo(s) guardado(s) correctamente.`);
