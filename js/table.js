@@ -44,12 +44,12 @@ export function renderTable(records, onRowClick) {
       <td>${fmtDate(rec.fecha_entrega)   || '—'}</td>
       <td>${fmtDate(rec.fecha_recepcion) || '—'}</td>
       <td>${fmtDate(rec.patologia_fisica) || '—'}</td>
+      <td>${fmtDate(rec.fecha_revision_medico) || '—'}</td>
       <td>${pill(rec.requiere_cita)}</td>
       <td>${fmtDate(rec.fecha_cita) || '—'}</td>
       <td>${fmtDate(rec.enviado_paciente) || '—'}</td>
       <td>${fmtMoney(rec.monto) || '—'}</td>
       <td>${fmtDate(rec.fecha_pago) || '—'}</td>
-      <td>${fmtDate(rec.fecha_revision_medico) || '—'}</td>
     </tr>
   `).join('');
 
