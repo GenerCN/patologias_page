@@ -13,15 +13,16 @@ export const FIELDS = [
   { key: 'enviado_paciente', label: 'Fecha de envío a Paciente',                 type: 'date',   section: 'Seguimiento' },
   { key: 'monto',            label: 'Monto',                              type: 'text',   section: 'Contabilidad' },
   { key: 'fecha_pago',       label: 'Fecha Pago Contabilidad',            type: 'date',   section: null },
+  { key: 'fecha_revision_medico', label: 'Fecha Revisión del Médico',     type: 'date',   section: 'Revisión Médica' },
 ];
 
 // Secciones editables por usuario (coincide con section: en FIELDS)
 // La clave es el nombre de usuario en minúsculas sin acentos
 export const PERMISSIONS = {
-  farmacia:     ['Identificación', 'Patología', 'Cita'],
+  farmacia:     ['Identificación', 'Patología', 'Cita', 'Revisión Médica'],
   admision:     ['Cita', 'Seguimiento'],
   contabilidad: ['Contabilidad'],
-  admin:        ['Identificación', 'Patología', 'Cita', 'Seguimiento', 'Contabilidad'],
+  admin:        ['Identificación', 'Patología', 'Cita', 'Seguimiento', 'Contabilidad', 'Revisión Médica'],
 };
 
 export const KEY_MAP = {
@@ -37,4 +38,5 @@ export const KEY_MAP = {
   enviado_paciente: 'Enviado a Paciente',
   monto:            'Monto',
   fecha_pago:       'Fecha Pago Contabilidad',
+  fecha_revision_medico: 'Fecha Revisión del Médico',
 };
