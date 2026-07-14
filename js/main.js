@@ -1,12 +1,15 @@
 import { FIELDS } from './config.js';
 import { setStatus, showToast, normalizeRecord } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
-import { setTableLoading, showTableError, renderTable } from './table.js';
+import { setTableLoading, showTableError, renderTable, renderPagination } from './table.js';
 import { openPanel, openNewPanel, closePanel, collectPanelValues, getActiveRecord, isNewRecord } from './panel.js';
 import { canCreateRecord } from './auth.js';
 
+const PAGE_SIZE = 15;
+
 let allRecords   = [];
 let activeFilter = null;
+let currentPage  = 1;
 
 const FILTERS = {
   'not-arrived':     r => !r.patologia_fisica,
@@ -19,10 +22,32 @@ function applyFilter(records) {
   return fn ? records.filter(fn) : records;
 }
 
+function compareFolioDesc(a, b) {
+  return String(b.folio ?? '').localeCompare(String(a.folio ?? ''), undefined, { numeric: true, sensitivity: 'base' });
+}
+
 function updateFilterUI() {
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.filter === activeFilter);
   });
+}
+
+function renderView() {
+  const filtered    = applyFilter(allRecords).slice().sort(compareFolioDesc);
+  const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  currentPage       = Math.min(currentPage, totalPages);
+  const start       = (currentPage - 1) * PAGE_SIZE;
+  const pageItems   = filtered.slice(start, start + PAGE_SIZE);
+
+  renderTable(pageItems, openPanel);
+  renderPagination(document.getElementById('pagination'), {
+    page: currentPage,
+    totalPages,
+    onPageChange: p => { currentPage = p; renderView(); }
+  });
+
+  document.getElementById('stats-bar').style.display = 'flex';
+  document.getElementById('stat-count').textContent  = filtered.length;
 }
 
 async function loadAll() {
@@ -31,11 +56,9 @@ async function loadAll() {
     const data = await apiFetch({ action: 'getAll' });
     const rows = Array.isArray(data) ? data : (data.records || data.data || []);
     allRecords  = rows.map(normalizeRecord);
-    const visible = applyFilter(allRecords);
-    renderTable(visible, openPanel);
+    currentPage = 1;
+    renderView();
     setStatus('online', `${allRecords.length} registros`);
-    document.getElementById('stats-bar').style.display = 'flex';
-    document.getElementById('stat-count').textContent  = visible.length;
   } catch (e) {
     setStatus('error', 'Error de conexión');
     showTableError(e.message);
@@ -49,11 +72,9 @@ async function loadSearch(type, query) {
     const data = await apiFetch({ action: 'search', type, query });
     const rows = Array.isArray(data) ? data : (data.records || data.data || []);
     allRecords  = rows.map(normalizeRecord);
-    const visible = applyFilter(allRecords);
-    renderTable(visible, openPanel);
+    currentPage = 1;
+    renderView();
     setStatus('online', `${allRecords.length} resultado(s)`);
-    document.getElementById('stats-bar').style.display = 'flex';
-    document.getElementById('stat-count').textContent  = visible.length;
   } catch (e) {
     setStatus('error', 'Error de conexión');
     showTableError(e.message);
@@ -158,14 +179,12 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
     const filter = chip.dataset.filter;
     activeFilter = activeFilter === filter ? null : filter;
     updateFilterUI();
+    currentPage = 1;
 
     if (allRecords.length === 0) {
       await loadAll();
     } else {
-      const visible = applyFilter(allRecords);
-      renderTable(visible, openPanel);
-      document.getElementById('stats-bar').style.display = 'flex';
-      document.getElementById('stat-count').textContent  = visible.length;
+      renderView();
     }
   });
 });

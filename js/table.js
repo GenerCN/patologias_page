@@ -56,3 +56,46 @@ export function renderTable(records, onRowClick) {
     tr.addEventListener('click', () => onRowClick(records[parseInt(tr.dataset.idx)], tr));
   });
 }
+
+function buildPageList(current, total) {
+  const delta = 1;
+  const range = [];
+  for (let i = Math.max(2, current - delta); i <= Math.min(total - 1, current + delta); i++) {
+    range.push(i);
+  }
+  const pages = [1];
+  if (range[0] > 2) pages.push('…');
+  pages.push(...range);
+  if (range[range.length - 1] < total - 1) pages.push('…');
+  if (total > 1) pages.push(total);
+  return pages;
+}
+
+export function renderPagination(container, { page, totalPages, onPageChange }) {
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'flex';
+  const pages = buildPageList(page, totalPages);
+
+  container.innerHTML = `
+    <button class="page-btn" data-page="prev" ${page === 1 ? 'disabled' : ''} aria-label="Página anterior">‹</button>
+    ${pages.map(p => p === '…'
+      ? `<span class="page-ellipsis">…</span>`
+      : `<button class="page-btn ${p === page ? 'active' : ''}" data-page="${p}">${p}</button>`
+    ).join('')}
+    <button class="page-btn" data-page="next" ${page === totalPages ? 'disabled' : ''} aria-label="Página siguiente">›</button>
+  `;
+
+  container.querySelectorAll('.page-btn:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.page;
+      if (val === 'prev') onPageChange(page - 1);
+      else if (val === 'next') onPageChange(page + 1);
+      else onPageChange(parseInt(val, 10));
+    });
+  });
+}
