@@ -51,6 +51,25 @@ function buildPanelBody(record, readonlyFolio = false) {
 
   html += '</div>';
   body.innerHTML = html;
+
+  // Auto-completar monto según nivel de patología
+  const selPatologia = document.getElementById('fe-nivel_patologia');
+  if (selPatologia) {
+    selPatologia.addEventListener('change', (e) => {
+      const val = e.target.value;
+      const inpMonto = document.getElementById('fe-monto');
+      if (inpMonto) {
+        let precio = '';
+        if (val === '1') precio = '900.00';
+        else if (val === '2') precio = '1600.00';
+        else if (val === '3') precio = '2100.00';
+        else if (val === '4') precio = '2500.00';
+        else if (val === 'Papanicolau') precio = '200.00';
+        
+        inpMonto.value = precio;
+      }
+    });
+  }
 }
 
 export function openPanel(record, tr) {
@@ -102,7 +121,9 @@ export function collectPanelValues() {
   const rec = { ...activeRecord };
   FIELDS.forEach(f => {
     const el = document.getElementById('fe-' + f.key);
-    if (el && !el.readOnly && !el.disabled) rec[f.key] = el.value;
+    if (el && (!el.readOnly && !el.disabled || f.key === 'monto')) {
+      rec[f.key] = el.value;
+    }
   });
   return rec;
 }
