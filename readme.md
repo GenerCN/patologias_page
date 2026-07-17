@@ -10,10 +10,10 @@ El sistema está dividido en dos capas principales: el frontend web (cliente) y 
 
 ```mermaid
 graph TD
-    A["Cliente (HTML/JS en GitHub Pages)"] -->|Peticiones HTTP GET con reintentos| B["Google Apps Script (Web App API)"]
-    B -->|Lectura / Escritura (SpreadsheetApp)| C[("Google Sheets (Base de Datos)")]
-    C -->|Retorna Filas/Celdas| B
-    B -->|Respuesta en Formato JSON| A
+    A["Cliente (HTML/JS en GitHub Pages)"] -->|"Peticiones HTTP GET"| B["Google Apps Script (API Web)"]
+    B -->|"Lectura / Escritura"| C[(Google Sheets)]
+    C -->|"Datos de Filas"| B
+    B -->|"Respuesta JSON"| A
 ```
 
 ### Detalles de la Conexión:
@@ -31,44 +31,41 @@ El flujo típico del usuario dentro de la aplicación sigue los siguientes pasos
 sequenceDiagram
     autonumber
     actor Usuario
-    participant Navegador as Frontend (Navegador)
-    participant API as Google Apps Script
-    participant DB as Google Sheets
+    participant Navegador as "Frontend (Navegador)"
+    participant API as "Google Apps Script"
+    participant DB as "Google Sheets"
 
     Usuario->>Navegador: Accede al sitio
-    Navegador->>Navegador: Verifica sesión en localStorage (cmsl_session)
+    Navegador->>Navegador: Verifica sesión en localStorage
     alt No hay sesión
-        Navegador->>Usuario: Redirecciona a login.html
+        Navegador->>Usuario: Redirecciona a la página de login
         Usuario->>Navegador: Ingresa usuario y contraseña
-        Navegador->>API: GET ?action=login&usuario=X&clave=Y
+        Navegador->>API: Valida credenciales (action=login)
         API->>DB: Busca en la hoja "Usuarios"
         DB-->>API: Retorna filas de usuarios
-        API-->>Navegador: { success: true, nombre: "..." }
-        Navegador->>Navegador: Guarda cmsl_session en localStorage
+        API-->>Navegador: Retorna éxito o error
+        Navegador->>Navegador: Guarda sesión en localStorage
         Navegador->>Usuario: Redirecciona al Dashboard (index.html)
     end
 
-    Usuario->>Navegador: Hace clic en el módulo "Patologías" (patologias.html)
-    Navegador->>API: GET ?action=getAll
-    API->>DB: Obtiene todos los registros de "Hoja 1"
-    DB-->>API: Retorna los datos de las patologías
+    Usuario->>Navegador: Selecciona el módulo de Patologías
+    Navegador->>API: Solicita todos los registros (action=getAll)
+    API->>DB: Lee todos los registros de la Hoja 1
+    DB-->>API: Retorna datos de las patologías
     API-->>Navegador: Retorna arreglo JSON de registros
-    Navegador->>Usuario: Muestra la tabla de patologías (paginada)
+    Navegador->>Usuario: Muestra la tabla de patologías paginada
 
-    rect rgb(240, 248, 255)
-        note over Usuario, DB: Operaciones sobre Registros
-        alt Búsqueda / Filtro
-            Usuario->>Navegador: Ingresa término y presiona Buscar
-            Navegador->>API: GET ?action=search&query=texto
-            API-->>Navegador: Registros filtrados
-        else Edición de Campos (Detalle)
-            Usuario->>Navegador: Hace clic en una fila de la tabla
-            Navegador->>Navegador: Abre el panel lateral con campos según el rol
-            Usuario->>Navegador: Modifica un campo permitido y guarda
-            Navegador->>API: GET ?action=update&folio=F&field=C&value=V (para cada campo modificado)
-            API->>DB: Escribe el valor en la celda correspondiente
-            API-->>Navegador: { success: true }
-        end
+    alt Búsqueda / Filtro
+        Usuario->>Navegador: Ingresa término y presiona Buscar
+        Navegador->>API: Ejecuta búsqueda (action=search)
+        API-->>Navegador: Registros que coinciden con el término
+    else Edición de Campos
+        Usuario->>Navegador: Selecciona una fila de la tabla
+        Navegador->>Navegador: Abre panel lateral con campos habilitados según rol
+        Usuario->>Navegador: Modifica un campo permitido y guarda
+        Navegador->>API: Actualiza campo modificado (action=update)
+        API->>DB: Escribe nuevo valor en la celda
+        API-->>Navegador: Retorna confirmación de éxito
     end
 ```
 
@@ -149,121 +146,3 @@ Contiene las credenciales para la autenticación de usuarios.
 | :--- | :---: | :--- |
 | **A** | `Usuario` | Nombre de usuario (ej. `farmacia`, `admin`, `admision`, `contabilidad`). |
 | **B** | `Clave` | Contraseña asignada al usuario. |
-
----
-
-## 6. Código del Servidor (Google Apps Script)
-
-El siguiente código JavaScript debe ser implementado y publicado como **Aplicación Web** en el editor de Google Apps Script del documento Sheets asociado:
-
-```javascript
-const SHEET_NAME = "Hoja 1";
-
-function doGet(e) {
-  try {
-    const action = e.parameter.action;
-    if (action === "getAll")  return getAll();
-    if (action === "search")  return search(e.parameter.query);
-    if (action === "update")  return updateRow(e.parameter.folio, e.parameter.expediente, e.parameter.field, e.parameter.value);
-    if (action === "create")  return createRow(e.parameter);
-    if (action === "login")   return loginUser(e.parameter.usuario, e.parameter.clave);
-    return respond({ error: "Acción no válida: " + action });
-  } catch (err) {
-    return respond({ error: "Error interno: " + err.message });
-  }
-}
-
-function getAll() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) return respond({ error: "Hoja no encontrada: " + SHEET_NAME });
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const result = rows.slice(1).map(row => {
-    let obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
-  return respond(result);
-}
-
-function search(query) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) return respond({ error: "Hoja no encontrada: " + SHEET_NAME });
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const q = (query || "").toLowerCase();
-  const result = rows.slice(1).filter(row =>
-    row.some(cell => String(cell).toLowerCase().includes(q))
-  ).map(row => {
-    let obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  });
-  return respond(result);
-}
-
-function updateRow(folio, expediente, field, value) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  const rows = sheet.getDataRange().getValues();
-  const headers = rows[0];
-  const colIndex = headers.indexOf(field);
-  if (colIndex === -1) return respond({ error: "Campo no encontrado: " + field });
-
-  for (let i = 1; i < rows.length; i++) {
-    const coincide = expediente
-      ? String(rows[i][1]) === String(expediente)   // Busca por expediente (col B)
-      : String(rows[i][0]) === String(folio);        // Fallback a folio (col A)
-    if (coincide) {
-      sheet.getRange(i + 1, colIndex + 1).setValue(value);
-      return respond({ success: true });
-    }
-  }
-  return respond({ error: "Registro no encontrado" });
-}
-
-function createRow(params) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) return respond({ error: "Hoja no encontrada: " + SHEET_NAME });
-  const headers = sheet.getDataRange().getValues()[0];
-  const newRow  = headers.map(h => params[h] || '');
-  sheet.appendRow(newRow);
-  return respond({ success: true });
-}
-
-function loginUser(usuario, clave) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Usuarios");
-  if (!sheet) return respond({ error: "Hoja Usuarios no encontrada" });
-  const rows = sheet.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]).trim() === String(usuario || "").trim() &&
-        String(rows[i][1]).trim() === String(clave   || "").trim()) {
-      return respond({ success: true, nombre: String(rows[i][0]) });
-    }
-  }
-  return respond({ error: "Usuario o contraseña incorrectos" });
-}
-
-function respond(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-```
-
----
-
-## 7. Instrucciones de Configuración y Despliegue
-
-1. **Configurar el Google Sheets**: Crea una hoja de cálculo en tu Google Drive y añade las pestañas `Hoja 1` y `Usuarios` estructuradas como se detalla en la sección 5.
-2. **Implementar el código de Apps Script**:
-   * En tu hoja de cálculo, ve a **Extensiones > Apps Script**.
-   * Reemplaza todo el código del archivo `Código.gs` con el código provisto en la sección 6.
-   * Haz clic en **Implementar > Nueva implementación**.
-   * En el tipo de implementación selecciona **Aplicación Web**.
-   * En la configuración:
-     * *Ejecutar como*: Tu cuenta (Usuario actual).
-     * *Quién tiene acceso*: **Cualquiera** (necesario para permitir el acceso público de peticiones externas).
-   * Haz clic en **Implementar**, autoriza los permisos necesarios y copia la **URL de la aplicación web**.
-3. **Vincular el Frontend**:
-   * Abre el archivo `js/config.js` en tu entorno local.
-   * Reemplaza el valor de `API_URL` en la línea 1 con la URL copiada de la aplicación web de Apps Script.
-4. **Publicar el sitio**: Sube los archivos a tu servidor web o configúralo en **GitHub Pages** para habilitar el acceso.
