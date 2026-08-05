@@ -19,6 +19,13 @@ function buildPanelBody(record, readonlyFolio = false) {
   let sectionEditable = true;
 
   FIELDS.forEach(f => {
+    const val = record[f.key] ?? '';
+
+    if (f.type === 'hidden') {
+      html += `<input type="hidden" id="fe-${f.key}" name="${f.key}" value="${escHtml(val)}">`;
+      return;
+    }
+
     if (f.section && f.section !== lastSection) {
       sectionEditable = editableSections.includes(f.section);
       const locked = !sectionEditable;
@@ -28,7 +35,6 @@ function buildPanelBody(record, readonlyFolio = false) {
 
     const isReadonly = (readonlyFolio && f.key === 'folio') || !sectionEditable;
     const roAttr = isReadonly ? ' readonly class="field-readonly"' : '';
-    const val = record[f.key] ?? '';
 
     html += `<div class="field-group${f.full ? ' full' : ''}">
       <label for="fe-${f.key}">${f.label}</label>`;
@@ -121,7 +127,7 @@ export function collectPanelValues() {
   const rec = { ...activeRecord };
   FIELDS.forEach(f => {
     const el = document.getElementById('fe-' + f.key);
-    if (el && (!el.readOnly && !el.disabled || f.key === 'monto')) {
+    if (el && (!el.readOnly && !el.disabled || f.key === 'monto' || f.type === 'hidden')) {
       rec[f.key] = el.value;
     }
   });

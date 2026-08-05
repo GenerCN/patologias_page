@@ -1,6 +1,7 @@
 export const API_URL = 'https://script.google.com/macros/s/AKfycbyfVxc0BWrZDIJtMBlShXxrL_JXpD3ZGzBP79hIc44p-ZXvTqQ3L4xbMxZn0HSIm2Su/exec';
 
 export const FIELDS = [
+  { key: 'id',               label: 'ID',                                 type: 'hidden' },
   { key: 'folio',            label: 'Folio',                              type: 'text',   section: 'Identificación' },
   { key: 'expediente',       label: 'Expediente',                         type: 'text',   section: null },
   { key: 'nombre_paciente',  label: 'Nombre del Paciente',                type: 'text',   section: null, full: true },
@@ -26,6 +27,7 @@ export const PERMISSIONS = {
 };
 
 export const KEY_MAP = {
+  id:               'ID',
   folio:            'Folio',
   expediente:       'Expediente',
   nombre_paciente:  'Nombre del Paciente',

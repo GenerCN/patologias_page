@@ -36,12 +36,11 @@ export async function apiFetch(params) {
   return res.json();
 }
 
-export async function apiUpdateField(folio, expediente, field, value) {
+export async function apiUpdateField(id, field, value) {
   const sheetField = KEY_MAP[field] || field;
   const url = new URL(API_URL);
   url.searchParams.set('action',     'update');
-  url.searchParams.set('folio',      folio);
-  url.searchParams.set('expediente', expediente);
+  url.searchParams.set('id',         id);
   url.searchParams.set('field',      sheetField);
   url.searchParams.set('value',      value);
 
