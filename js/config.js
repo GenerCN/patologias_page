@@ -5,7 +5,7 @@ export const FIELDS = [
   { key: 'folio',            label: 'Folio',                              type: 'text',   section: 'Identificación' },
   { key: 'expediente',       label: 'Expediente',                         type: 'text',   section: null },
   { key: 'nombre_paciente',  label: 'Nombre del Paciente',                type: 'text',   section: null, full: true },
-  { key: 'nivel_patologia',  label: 'Nivel o Tipo de Patología',          type: 'select', options: ['', '1', '2', '3', '4', 'Papanicolau'], section: 'Patología' },
+  { key: 'nivel_patologia',  label: 'Nivel o Tipo de Patología',          type: 'select', options: ['', '1', '2', '3', '4', '5', 'Papanicolau'], section: 'Patología' },
   { key: 'fecha_entrega',    label: 'Fecha de entrega',                   type: 'date',   section: null },
   { key: 'fecha_recepcion',  label: 'Fecha de recepción de resultados digitales',   type: 'date',   section: null },
   { key: 'patologia_fisica', label: 'Fecha de recepción de resultados físicos', type: 'date', section: null },

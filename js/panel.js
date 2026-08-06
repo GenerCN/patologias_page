@@ -2,12 +2,12 @@ import { FIELDS } from './config.js';
 import { escHtml } from './utils.js';
 import { getEditableSections } from './auth.js';
 
-let activeRow    = null;
+let activeRow = null;
 let activeRecord = null;
-let isNew        = false;
+let isNew = false;
 
 export function getActiveRecord() { return activeRecord; }
-export function isNewRecord()     { return isNew; }
+export function isNewRecord() { return isNew; }
 
 const LOCK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;vertical-align:middle;margin-left:5px;opacity:.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
 
@@ -70,8 +70,9 @@ function buildPanelBody(record, readonlyFolio = false) {
         else if (val === '2') precio = '1600.00';
         else if (val === '3') precio = '2100.00';
         else if (val === '4') precio = '2500.00';
+        else if (val === '5') return; // Nivel 5: no coloca el precio automáticamente
         else if (val === 'Papanicolau') precio = '200.00';
-        
+
         inpMonto.value = precio;
       }
     });
@@ -81,7 +82,7 @@ function buildPanelBody(record, readonlyFolio = false) {
 export function openPanel(record, tr) {
   isNew = false;
   if (activeRow) activeRow.classList.remove('active');
-  activeRow    = tr;
+  activeRow = tr;
   activeRecord = record;
   tr.classList.add('active');
 
@@ -101,10 +102,10 @@ export function openPanel(record, tr) {
 export function openNewPanel() {
   isNew = true;
   if (activeRow) activeRow.classList.remove('active');
-  activeRow    = null;
+  activeRow = null;
   activeRecord = {};
 
-  document.getElementById('panel-title').textContent    = 'Nuevo Registro';
+  document.getElementById('panel-title').textContent = 'Nuevo Registro';
   document.getElementById('panel-subtitle').textContent = 'Complete los campos y guarde';
   document.getElementById('btn-save-edit').innerHTML =
     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M12 4v16m8-8H4"/></svg> Crear registro`;
@@ -120,7 +121,7 @@ export function closePanel() {
   document.getElementById('app-body').classList.remove('panel-open');
   if (activeRow) { activeRow.classList.remove('active'); activeRow = null; }
   activeRecord = null;
-  isNew        = false;
+  isNew = false;
 }
 
 export function collectPanelValues() {
