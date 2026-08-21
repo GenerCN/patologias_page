@@ -3,7 +3,7 @@ import { setStatus, showToast, escHtml } from '../utils.js';
 import { renderPagination } from '../table.js';
 import {
   DEPARTAMENTOS, ESTADO, ALERTA,
-  deptoDe, esSuper, esSoloLectura,
+  deptoDe, tieneAccesoBitacora,
   puedeAperturar, puedeEntregar, puedeRecibir, puedeCerrar, puedeDeshacer,
   destinosDesde,
 } from './config.js';
@@ -23,10 +23,19 @@ function opcionesSalidaAdmision() {
 
 const PAGE_SIZE = 15;
 
-const session   = requireAuth();
-const usuario   = session ? session.usuario : '';
-const miDepto   = deptoDe(usuario);
-const soloLeer  = esSoloLectura(usuario) || (!miDepto && !esSuper(usuario));
+const session = requireAuth();
+const usuario = session ? session.usuario : '';
+
+/* Portero del módulo. El `throw` corta la evaluación del módulo para que no
+   se alcance a pintar nada mientras el navegador procesa la redirección;
+   la página arranca oculta y solo se destapa unas líneas más abajo. */
+if (!session || !tieneAccesoBitacora(usuario)) {
+  if (session) window.location.replace('index.html');
+  throw new Error('Este usuario no tiene acceso al módulo de bitácora.');
+}
+document.documentElement.classList.remove('bit-verificando');
+
+const miDepto = deptoDe(usuario);
 
 let expedientes    = [];
 let relojServidor  = null;   // hora del servidor al momento de la última carga
@@ -150,10 +159,6 @@ async function buscar(type, query) {
 /* ── Panel: expediente existente ──────────────────────────────────────── */
 
 function bloqueAcciones(exp) {
-  if (soloLeer) {
-    return `<div class="bit-aviso">Tu usuario tiene acceso de solo lectura a la bitácora.</div>`;
-  }
-
   const acciones = [];
 
   if (puedeRecibir(usuario, exp)) {

@@ -35,9 +35,6 @@ export const USUARIO_DEPTO = {
 /** Pueden operar a nombre de cualquier departamento. */
 export const SUPERUSUARIOS = ['admin'];
 
-/** Solo lectura: ven la bitácora pero no registran movimientos. */
-export const SOLO_LECTURA = ['farmacia', 'contabilidad'];
-
 export const ESTADO = {
   DEPTO:    'En departamento',
   TRANSITO: 'En tránsito',
@@ -64,8 +61,16 @@ export function esSuper(usuario) {
   return SUPERUSUARIOS.includes(normUser(usuario));
 }
 
-export function esSoloLectura(usuario) {
-  return SOLO_LECTURA.includes(normUser(usuario));
+/**
+ * Quién puede abrir el módulo de bitácora.
+ *
+ * La regla falla cerrado a propósito: solo entra quien tiene un departamento
+ * asignado en USUARIO_DEPTO, más el superusuario. Así `farmacia` y
+ * `contabilidad` quedan fuera, y cualquier usuario que se agregue a la hoja
+ * `Usuarios` sin mapearlo aquí tampoco entra por accidente.
+ */
+export function tieneAccesoBitacora(usuario) {
+  return Boolean(deptoDe(usuario)) || esSuper(usuario);
 }
 
 /* ── Permisos (espejo de las validaciones del backend) ─────────────────── */

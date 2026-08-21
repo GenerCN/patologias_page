@@ -160,7 +160,7 @@
     </a>
 
     <!-- Bitácora de Expedientes -->
-    <a class="module-card" href="bitacora.html">
+    <a class="module-card" href="bitacora.html" id="card-bitacora">
       <div class="module-icon icon-green">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
           <path d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -192,11 +192,17 @@
 
 <script type="module">
   import { getSession, logout } from './js/auth.js';
+  import { tieneAccesoBitacora } from './js/bitacora/config.js';
 
   const session = getSession();
   if (session) {
     document.getElementById('greeting-name').textContent = session.usuario;
     document.getElementById('header-user').textContent   = session.usuario;
+  }
+
+  // Farmacia y contabilidad no participan en el traslado de expedientes.
+  if (!session || !tieneAccesoBitacora(session.usuario)) {
+    document.getElementById('card-bitacora').remove();
   }
 
   document.getElementById('btn-logout').addEventListener('click', logout);

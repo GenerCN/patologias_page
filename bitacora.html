@@ -6,7 +6,14 @@
   <title>Centro Médico San Lucas — Bitácora de Expedientes</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/bitacora.css">
-  <script>if (!localStorage.getItem('cmsl_session')) location.replace('login.html');</script>
+  <!-- La página arranca oculta y js/bitacora/main.js la destapa solo si el
+       usuario tiene acceso al módulo. Evita que farmacia o contabilidad
+       alcancen a ver la bitácora antes de ser redirigidos. -->
+  <style>html.bit-verificando { visibility: hidden; }</style>
+  <script>
+    document.documentElement.className = 'bit-verificando';
+    if (!localStorage.getItem('cmsl_session')) location.replace('login.html');
+  </script>
 </head>
 <body>
 

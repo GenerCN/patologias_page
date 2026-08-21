@@ -169,8 +169,8 @@ Usuarios esperados por el sistema:
 | Usuario | Patologías | Bitácora |
 | :--- | :--- | :--- |
 | `admin` | Todas las secciones + crear | Superusuario: opera a nombre de cualquier departamento y puede deshacer |
-| `farmacia` | Identificación, Patología, Cita + crear | Solo lectura |
-| `contabilidad` | Contabilidad | Solo lectura |
+| `farmacia` | Identificación, Patología, Cita + crear | **Sin acceso** |
+| `contabilidad` | Contabilidad | **Sin acceso** |
 | `admision` | Cita, Seguimiento | Departamento **Admisión** |
 | `preoperatorio` | — | Departamento **Preoperatorio** |
 | `oftalmologia` | — | Departamento **Oftalmología** |
@@ -282,7 +282,11 @@ stateDiagram-v2
 | Confirmar recepción | Únicamente el departamento destino, o `admin` |
 | Cerrar el expediente | `admision`, `admin` — y solo si el expediente ya regresó a Admisión |
 | Deshacer el último paso | `admin` |
-| Consultar | Todos los usuarios |
+| Abrir el módulo y consultar | Solo usuarios con departamento asignado en `USUARIO_DEPTO`, más `admin` |
+
+`tieneAccesoBitacora()` decide quién entra, y la regla **falla cerrado**: se requiere tener departamento asignado o ser superusuario. `farmacia` y `contabilidad` quedan fuera por no aparecer en `USUARIO_DEPTO`, sin necesidad de mantener una lista negra — y cualquier usuario que se agregue a la hoja `Usuarios` sin mapearlo aquí tampoco entra por descuido.
+
+El bloqueo actúa en dos puntos: la tarjeta del módulo se elimina del dashboard, y `bitacora.html` arranca oculta (`html.bit-verificando { visibility: hidden }`) y solo se destapa si el guard de `js/bitacora/main.js` aprueba al usuario. Así, entrar por URL directa no alcanza a mostrar nada.
 
 Las reglas están escritas dos veces a propósito: en `js/bitacora/config.js` para ocultar botones, y en `Codigo.gs` para **validar de verdad**. El frontend es una comodidad; la autoridad es el backend, porque cualquiera puede llamar la URL de la API a mano.
 
