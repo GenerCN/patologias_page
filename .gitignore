@@ -1,0 +1,9 @@
+# Código de Google Apps Script.
+# El backend vive en el editor de Apps Script, no en este repositorio.
+# Esta carpeta es solo una copia local de trabajo.
+apps_script/
+
+# Sistema operativo
+Thumbs.db
+desktop.ini
+.DS_Store

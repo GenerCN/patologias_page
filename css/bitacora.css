@@ -1,0 +1,197 @@
+/* ── Bitácora de Expedientes ─────────────────────────────────────────────
+   Complementa css/styles.css; reutiliza sus tokens y componentes base. */
+
+/* Toolbar extra */
+.bit-filtros-extra {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+#filtro-depto {
+  padding: 6px 11px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: var(--radius);
+  font-size: 13px; color: var(--gray-700);
+  background: var(--white); outline: none;
+  transition: border-color .2s;
+}
+#filtro-depto:focus { border-color: var(--blue-500); }
+.bit-check {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--gray-500); cursor: pointer;
+  user-select: none;
+}
+.bit-check input { accent-color: var(--blue-700); cursor: pointer; }
+
+/* Estado en tabla */
+.bit-badge {
+  display: inline-block;
+  padding: 2px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.bit-badge-activo    { background: var(--green-bg);  color: var(--green); }
+.bit-badge-transito  { background: var(--yellow-bg); color: var(--yellow); }
+.bit-badge-cerrado   { background: var(--gray-100);  color: var(--gray-500); }
+.bit-badge-cancelado { background: var(--red-bg);    color: var(--red); margin-left: 6px; }
+
+.bit-ruta { display: inline-flex; align-items: center; gap: 6px; }
+.bit-depto { font-weight: 600; color: var(--blue-700); }
+.bit-depto-origen  { color: var(--gray-500); font-weight: 500; }
+.bit-depto-destino { color: var(--yellow); }
+.bit-flecha { color: var(--gray-300); font-weight: 700; }
+
+.bit-row-alerta { background: #FFFBEB; }
+.bit-row-alerta:hover { background: #FEF3C7; }
+.bit-tiempo-alerta { color: var(--red); font-weight: 600; }
+.bit-alerta-icono { color: var(--red); }
+
+/* Bloque de acciones del panel */
+.bit-accion {
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.bit-accion-recibir {
+  background: var(--green-bg);
+  border-color: #BBF7D0;
+}
+.bit-accion-texto {
+  font-size: 13px; line-height: 1.5;
+  color: var(--gray-700); margin-bottom: 14px;
+}
+.bit-accion .btn { width: 100%; justify-content: center; }
+.bit-nota {
+  font-size: 11px; color: var(--gray-500);
+  line-height: 1.45; margin-top: 10px;
+}
+
+.bit-aviso {
+  background: var(--gray-100);
+  border-left: 3px solid var(--gray-300);
+  border-radius: 0 6px 6px 0;
+  padding: 12px 14px;
+  font-size: 12px; line-height: 1.5;
+  color: var(--gray-500);
+  margin-bottom: 16px;
+}
+
+.bit-aviso-ok {
+  background: var(--blue-100);
+  border-left-color: var(--blue-500);
+  color: var(--blue-900);
+}
+.bit-aviso-error {
+  background: var(--red-bg);
+  border-left-color: var(--red);
+  color: #7F1D1D;
+}
+/* Dentro del formulario el aviso va pegado al campo que lo dispara. */
+.bit-accion > .bit-aviso { margin-top: -6px; margin-bottom: 14px; }
+
+.bit-deshacer {
+  display: block; width: 100%;
+  background: none; border: 1px dashed var(--gray-300);
+  border-radius: var(--radius);
+  padding: 8px; margin-bottom: 16px;
+  font-size: 12px; font-weight: 600;
+  color: var(--gray-500); cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.bit-deshacer:hover { color: var(--red); border-color: var(--red); }
+
+.bit-vacio {
+  font-size: 12px; color: var(--gray-500);
+  padding: 10px 0;
+}
+
+/* Resumen de tiempo por departamento */
+.bit-resumen { margin-bottom: 4px; }
+.bit-resumen-fila {
+  display: grid;
+  grid-template-columns: 108px 1fr auto;
+  align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.bit-resumen-depto {
+  font-size: 12px; font-weight: 600; color: var(--gray-700);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bit-resumen-barra {
+  height: 7px; border-radius: 4px;
+  background: var(--gray-100); overflow: hidden;
+}
+.bit-resumen-barra i {
+  display: block; height: 100%;
+  background: var(--blue-500); border-radius: 4px;
+}
+.bit-resumen-min {
+  font-size: 11px; font-weight: 600;
+  color: var(--gray-500); white-space: nowrap;
+}
+
+/* Línea de tiempo */
+.bit-timeline { list-style: none; position: relative; padding-left: 22px; }
+.bit-timeline::before {
+  content: ''; position: absolute;
+  left: 5px; top: 6px; bottom: 6px;
+  width: 2px; background: var(--gray-100);
+}
+.bit-paso { position: relative; padding-bottom: 18px; }
+.bit-paso:last-child { padding-bottom: 0; }
+.bit-paso-punto {
+  position: absolute; left: -22px; top: 4px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--white);
+  border: 2.5px solid var(--gray-300);
+}
+.bit-paso-ok        .bit-paso-punto { border-color: var(--green); }
+.bit-paso-transito  .bit-paso-punto { border-color: var(--yellow); background: var(--yellow-bg); }
+.bit-paso-cancelado .bit-paso-punto { border-color: var(--red); }
+.bit-paso-cierre    .bit-paso-punto { border-color: var(--blue-700); background: var(--blue-700); }
+
+.bit-paso-cancelado .bit-paso-cuerpo { opacity: .55; }
+.bit-paso-cancelado .bit-paso-titulo { text-decoration: line-through; }
+
+.bit-paso-titulo {
+  font-size: 13px; font-weight: 700;
+  color: var(--blue-900); margin-bottom: 5px;
+}
+.bit-paso-linea {
+  font-size: 12px; color: var(--gray-700);
+  line-height: 1.6;
+}
+.bit-paso-etiqueta {
+  display: inline-block; min-width: 58px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--gray-500);
+}
+.bit-paso-pendiente { color: var(--yellow); font-weight: 600; }
+.bit-paso-pendiente .bit-paso-etiqueta { color: var(--yellow); }
+
+.bit-paso-tiempos {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  margin-top: 7px;
+}
+.bit-tiempo {
+  font-size: 11px; color: var(--gray-500);
+  background: var(--gray-100);
+  padding: 3px 9px; border-radius: 20px;
+}
+.bit-tiempo strong { color: var(--gray-700); font-weight: 600; }
+.bit-tiempo.bit-tiempo-alerta { background: var(--red-bg); color: var(--red); }
+.bit-tiempo.bit-tiempo-alerta strong { color: var(--red); }
+
+.bit-paso-obs {
+  margin-top: 7px; padding: 7px 10px;
+  background: var(--white);
+  border-left: 2px solid var(--blue-300);
+  border-radius: 0 4px 4px 0;
+  font-size: 11px; font-style: italic; color: var(--gray-500);
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .bit-resumen-fila { grid-template-columns: 88px 1fr auto; }
+}

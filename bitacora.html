@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Centro Médico San Lucas — Bitácora de Expedientes</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/bitacora.css">
+  <script>if (!localStorage.getItem('cmsl_session')) location.replace('login.html');</script>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <a href="index.html" class="btn-back" title="Volver al dashboard">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px">
+      <path d="M15 19l-7-7 7-7"/>
+    </svg>
+  </a>
+  <img src="img/logo_cmsl.png" alt="Centro Médico San Lucas" class="header-logo">
+  <span class="header-subtitle">Bitácora de Expedientes</span>
+  <div class="header-spacer"></div>
+  <span id="header-depto" style="font-size:12px;color:var(--blue-300);margin-right:10px;"></span>
+  <div id="status-indicator">
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-label">Esperando…</span>
+  </div>
+  <button id="btn-logout" class="btn-logout" title="Cerrar sesión">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+    </svg>
+    Salir
+  </button>
+</header>
+
+<!-- ── BODY ── -->
+<div class="app-body" id="app-body">
+  <main>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Buscar expediente o paciente…" autocomplete="off">
+      </div>
+      <div class="search-type">
+        <label><input type="radio" name="stype" value="expediente" checked><span>Expediente</span></label>
+        <label><input type="radio" name="stype" value="nombre"><span>Nombre</span></label>
+      </div>
+      <button class="btn btn-primary" id="btn-search">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        Buscar
+      </button>
+      <button class="btn btn-outline" id="btn-all">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        Ver todos
+      </button>
+      <button class="btn btn-new" id="btn-new">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 4v16m8-8H4"/>
+        </svg>
+        Nueva salida
+      </button>
+    </div>
+
+    <!-- Filtros rápidos -->
+    <div class="filter-bar">
+      <span class="filter-label">Filtros rápidos:</span>
+      <button class="filter-chip" id="chip-mios" data-filter="mios">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M5 13l4 4L19 7"/>
+        </svg>
+        En <span class="chip-depto">mi departamento</span>
+      </button>
+      <button class="filter-chip" id="chip-transito" data-filter="transito">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M4 12h16m0 0l-6-6m6 6l-6 6"/>
+        </svg>
+        En tránsito (sin acuse)
+      </button>
+      <button class="filter-chip" id="chip-detenidos" data-filter="detenidos">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+        </svg>
+        Detenidos más de <span id="umbral-detenidos">24 h</span>
+      </button>
+    </div>
+
+    <!-- Filtros adicionales -->
+    <div class="bit-filtros-extra">
+      <select id="filtro-depto" aria-label="Filtrar por departamento"></select>
+      <label class="bit-check">
+        <input type="checkbox" id="chk-cerrados">
+        Incluir expedientes cerrados
+      </label>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats-bar" style="display:none">
+      <div class="stat-chip">Mostrando: <strong id="stat-visibles">0</strong></div>
+      <div class="stat-chip">En tránsito: <strong id="stat-transito">0</strong></div>
+      <div class="stat-chip">Detenidos: <strong id="stat-detenidos">0</strong></div>
+      <div class="stat-chip" id="stat-chip-mios" style="display:none">
+        En <span id="stat-mi-depto">—</span>: <strong id="stat-mios">0</strong>
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table id="records-table">
+          <thead>
+            <tr>
+              <th>Expediente</th>
+              <th>Paciente</th>
+              <th>Ubicación</th>
+              <th>Estado</th>
+              <th>Tiempo sin moverse</th>
+              <th style="text-align:center">Movs.</th>
+              <th>Última actualización</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="7">
+              <div class="state-box"><div class="spinner"></div><p>Cargando expedientes…</p></div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="pagination" id="pagination" style="display:none"></div>
+
+  </main>
+
+  <!-- ── PANEL LATERAL ── -->
+  <div id="side-panel">
+    <div class="panel-header">
+      <div class="panel-header-info">
+        <h2 id="panel-title">Expediente</h2>
+        <p id="panel-subtitle">—</p>
+      </div>
+      <button id="btn-close-panel" title="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="panel-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script type="module" src="js/bitacora/main.js"></script>
+</body>
+</html>
