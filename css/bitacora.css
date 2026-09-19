@@ -22,6 +22,29 @@
 }
 .bit-check input { accent-color: var(--blue-700); cursor: pointer; }
 
+.bit-sep {
+  width: 1px; height: 18px;
+  background: var(--gray-300);
+  margin: 0 2px;
+}
+.bit-refrescar {
+  display: grid; place-items: center;
+  width: 26px; height: 26px;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 6px;
+  background: var(--white); color: var(--gray-500);
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.bit-refrescar svg { width: 14px; height: 14px; }
+.bit-refrescar:hover {
+  color: var(--blue-700); border-color: var(--blue-300); background: var(--blue-50);
+}
+.bit-sync {
+  font-size: 11px; color: var(--gray-500);
+  white-space: nowrap;
+}
+
 /* Estado en tabla */
 .bit-badge {
   display: inline-block;

@@ -41,6 +41,22 @@ export const ESTADO = {
   CERRADO:  'Cerrado',
 };
 
+/**
+ * Refresco automático.
+ *
+ * Apps Script no puede avisarle al navegador cuando cambia la hoja: no hay
+ * websockets ni push. La única opción es preguntar cada cierto tiempo.
+ *
+ * 45 s es el punto medio entre enterarse rápido y no castigar la cuota del
+ * script: un expediente cambia de departamento cada varios minutos, no cada
+ * segundo. Bajarlo de 20 s no aporta nada y multiplica las llamadas.
+ * El refresco se pausa solo cuando la pestaña no está visible.
+ */
+export const AUTO_REFRESCO = {
+  SEGUNDOS: 45,
+  ACTIVO_POR_DEFECTO: true,
+};
+
 /** Minutos a partir de los cuales se marca en rojo. */
 export const ALERTA = {
   TRANSITO: 60,        // 1 h en tránsito sin acuse de recibo

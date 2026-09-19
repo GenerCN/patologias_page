@@ -2,7 +2,7 @@ import { requireAuth, logout } from '../auth.js';
 import { setStatus, showToast, escHtml } from '../utils.js';
 import { renderPagination } from '../table.js';
 import {
-  DEPARTAMENTOS, ESTADO, ALERTA,
+  DEPARTAMENTOS, ESTADO, ALERTA, AUTO_REFRESCO,
   deptoDe, tieneAccesoBitacora,
   puedeAperturar, puedeEntregar, puedeRecibir, puedeCerrar, puedeDeshacer,
   destinosDesde,
@@ -45,6 +45,16 @@ let incluirCerrados = false;
 let paginaActual   = 1;
 let expActivo      = null;   // expediente abierto en el panel
 let filaActiva     = null;
+
+/* Qué se está mostrando, para que el refresco automático repita la misma
+   consulta y no le borre la búsqueda al usuario cada 45 segundos. */
+let vistaActual   = { tipo: 'todos' };
+let autoRefresco  = AUTO_REFRESCO.ACTIVO_POR_DEFECTO;
+let temporizador  = null;
+let guardando     = false;   // hay una escritura en curso
+let ultimaSync    = null;    // Date.now() de la última carga exitosa
+
+const TITULO_BASE = document.title;
 
 const FILTROS = {
   'transito': exp => exp.estado === ESTADO.TRANSITO,
@@ -104,57 +114,175 @@ function actualizarStats(visibles) {
   }
 }
 
+/** Cuántos expedientes esperan que MI departamento acuse recibo. */
+function pendientesDeRecibir() {
+  if (!miDepto) return 0;
+  return expedientes.filter(e =>
+    e.estado === ESTADO.TRANSITO && e.destino_pendiente === miDepto).length;
+}
+
+/* El contador va en el título para que se vea desde una pestaña en segundo
+   plano, que es donde la bitácora va a estar la mayor parte del turno. */
+function actualizarTitulo() {
+  const n = pendientesDeRecibir();
+  document.title = (n ? `(${n}) ` : '') + TITULO_BASE;
+}
+
 function renderVista() {
   const filtrados  = aplicarFiltros(expedientes).slice().sort(ordenar);
   const totalPags  = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE));
   paginaActual     = Math.min(paginaActual, totalPags);
   const inicio     = (paginaActual - 1) * PAGE_SIZE;
+  const pagina     = filtrados.slice(inicio, inicio + PAGE_SIZE);
 
-  renderTabla(filtrados.slice(inicio, inicio + PAGE_SIZE), relojServidor, abrirExpediente);
+  renderTabla(pagina, relojServidor, abrirExpediente);
   renderPagination(document.getElementById('pagination'), {
     page: paginaActual,
     totalPages: totalPags,
     onPageChange: p => { paginaActual = p; renderVista(); },
   });
 
+  /* renderTabla reconstruye el <tbody>, así que la fila resaltada se pierde.
+     Se vuelve a marcar para que un refresco automático no desligue
+     visualmente el panel abierto de su renglón. */
+  filaActiva = null;
+  if (expActivo) {
+    const i = pagina.findIndex(e => e.expediente === expActivo.expediente);
+    if (i >= 0) {
+      filaActiva = document.querySelector(`#table-body tr[data-idx="${i}"]`);
+      if (filaActiva) filaActiva.classList.add('active');
+    }
+  }
+
   actualizarStats(filtrados.length);
+  actualizarTitulo();
 }
 
 /* ── Carga de datos ───────────────────────────────────────────────────── */
 
-async function cargar() {
-  setTablaCargando();
-  setStatus('loading', 'Conectando…');
+function traerDatos() {
+  return vistaActual.tipo === 'busqueda'
+    ? api.buscarExpedientes(vistaActual.type, vistaActual.query)
+    : api.getExpedientes({ incluirCerrados });
+}
+
+/**
+ * Trae los datos de la vista actual.
+ * En modo silencioso (refresco automático) no muestra spinner, no regresa a
+ * la página 1 y no rompe la tabla si falla: la red intermitente no debe
+ * borrar lo que el usuario está viendo.
+ */
+async function cargar({ silencioso = false } = {}) {
+  if (!silencioso) {
+    setTablaCargando();
+    setStatus('loading', vistaActual.tipo === 'busqueda' ? 'Buscando…' : 'Conectando…');
+  }
+
   try {
-    const { records, servidor } = await api.getExpedientes({ incluirCerrados });
+    const previos = expedientes;
+    const { records, servidor } = await traerDatos();
+
     expedientes   = records;
     relojServidor = servidor;
-    paginaActual  = 1;
+    ultimaSync    = Date.now();
+    if (!silencioso) paginaActual = 1;
+
     renderVista();
-    setStatus('online', `${records.length} expediente(s)`);
+    pintarSync();
+    setStatus('online', vistaActual.tipo === 'busqueda'
+      ? `${records.length} resultado(s)`
+      : `${records.length} expediente(s)`);
+
+    if (silencioso) avisarLlegadas(previos, records);
   } catch (e) {
-    setStatus('error', 'Error de conexión');
-    mostrarErrorTabla(e.message);
-    showToast('No se pudo cargar la bitácora: ' + e.message, true);
+    if (silencioso) {
+      // Se reintenta en el siguiente ciclo; no se toca la tabla.
+      setStatus('error', 'Sin conexión — se reintentará');
+      pintarSync();
+    } else {
+      setStatus('error', 'Error de conexión');
+      mostrarErrorTabla(e.message);
+      showToast('No se pudo cargar la bitácora: ' + e.message, true);
+    }
   }
 }
 
-async function buscar(type, query) {
-  setTablaCargando();
-  setStatus('loading', 'Buscando…');
-  try {
-    const { records, servidor } = await api.buscarExpedientes(type, query);
-    expedientes   = records;
-    relojServidor = servidor;
-    paginaActual  = 1;
-    renderVista();
-    setStatus('online', `${records.length} resultado(s)`);
-  } catch (e) {
-    setStatus('error', 'Error de conexión');
-    mostrarErrorTabla(e.message);
-    showToast('Error al buscar: ' + e.message, true);
-  }
+function buscar(type, query) {
+  vistaActual = { tipo: 'busqueda', type, query };
+  return cargar();
 }
+
+function verTodos() {
+  vistaActual = { tipo: 'todos' };
+  return cargar();
+}
+
+/* ── Refresco automático ──────────────────────────────────────────────── */
+
+/** Firma del estado visible de un expediente: cambia cuando se mueve. */
+function firma(exp) {
+  return [exp.estado, exp.departamento_actual, exp.destino_pendiente, exp.ultima_act].join('|');
+}
+
+/** Avisa cuando alguien acaba de mandarle un expediente a mi departamento. */
+function avisarLlegadas(previos, nuevos) {
+  if (!miDepto) return;
+
+  const antes = new Map(previos.map(e => [e.expediente, firma(e)]));
+  const llegando = nuevos.filter(e =>
+    e.estado === ESTADO.TRANSITO &&
+    e.destino_pendiente === miDepto &&
+    antes.get(e.expediente) !== firma(e));
+
+  if (!llegando.length) return;
+
+  const uno = llegando[0];
+  showToast(llegando.length === 1
+    ? `${uno.departamento_actual} te envió el expediente ${uno.expediente} — ${uno.nombre_paciente}`
+    : `Te enviaron ${llegando.length} expedientes. Confirma su recepción.`);
+}
+
+function pintarSync() {
+  const el = document.getElementById('bit-sync');
+  if (!el) return;
+
+  if (!autoRefresco) { el.textContent = 'Actualización automática en pausa'; return; }
+  if (!ultimaSync)   { el.textContent = 'Sin actualizar todavía';            return; }
+
+  const seg = Math.round((Date.now() - ultimaSync) / 1000);
+  el.textContent = seg < 10
+    ? 'Actualizado ahora'
+    : `Actualizado hace ${seg < 60 ? seg + ' s' : Math.round(seg / 60) + ' min'}`;
+}
+
+/* setTimeout encadenado en vez de setInterval: si Apps Script tarda (los
+   arranques en frío pasan de 5 s) las llamadas no se encaballan. */
+function programarRefresco() {
+  clearTimeout(temporizador);
+  if (!autoRefresco) return;
+
+  temporizador = setTimeout(async () => {
+    // Pestaña oculta: no se gasta cuota. Guardando: no se pisa la escritura.
+    if (document.visibilityState === 'visible' && !guardando) {
+      await cargar({ silencioso: true });
+    }
+    programarRefresco();
+  }, AUTO_REFRESCO.SEGUNDOS * 1000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !autoRefresco || guardando) return;
+
+  /* Alternar pestañas dispara este evento en ráfaga; sin este freno cada
+     clic en la barra de tareas sería una llamada más a Apps Script. Solo se
+     consulta si los datos ya tienen media vuelta de antigüedad. */
+  const antiguedad = ultimaSync ? Date.now() - ultimaSync : Infinity;
+  if (antiguedad < AUTO_REFRESCO.SEGUNDOS * 500) return;
+
+  // Al volver a la pestaña, ponerse al día sin esperar el siguiente ciclo.
+  cargar({ silencioso: true });
+  programarRefresco();
+});
 
 /* ── Panel: expediente existente ──────────────────────────────────────── */
 
@@ -336,6 +464,7 @@ async function ejecutar(boton, fn) {
   boton.disabled = true;
   boton.textContent = 'Guardando…';
   setStatus('loading', 'Guardando…');
+  guardando = true;
 
   const expediente = expActivo ? expActivo.expediente : null;
 
@@ -352,6 +481,8 @@ async function ejecutar(boton, fn) {
     boton.textContent = etiqueta;
     setStatus('error', 'Error al guardar');
     showToast(e.message, true);
+  } finally {
+    guardando = false;
   }
 }
 
@@ -516,6 +647,7 @@ function abrirNuevo() {
     boton.disabled = true;
     boton.textContent = 'Guardando…';
     setStatus('loading', 'Guardando…');
+    guardando = true;
 
     try {
       const res = await api.aperturar({ expediente, nombre, destino, usuario, observaciones: obs });
@@ -530,6 +662,8 @@ function abrirNuevo() {
       boton.textContent = 'Registrar salida';
       setStatus('error', 'Error al guardar');
       showToast(e.message, true);
+    } finally {
+      guardando = false;
     }
   });
 }
@@ -544,7 +678,10 @@ function cerrarPanel() {
 /* ── Eventos ──────────────────────────────────────────────────────────── */
 
 document.getElementById('btn-logout').addEventListener('click', logout);
-document.getElementById('btn-all').addEventListener('click', cargar);
+document.getElementById('btn-all').addEventListener('click', () => {
+  document.getElementById('search-input').value = '';
+  verTodos();
+});
 document.getElementById('btn-close-panel').addEventListener('click', cerrarPanel);
 document.getElementById('btn-new').addEventListener('click', abrirNuevo);
 
@@ -567,8 +704,18 @@ document.getElementById('filtro-depto').addEventListener('change', e => {
 
 document.getElementById('chk-cerrados').addEventListener('change', e => {
   incluirCerrados = e.target.checked;
-  cargar();
+  verTodos();
 });
+
+document.getElementById('chk-auto').addEventListener('change', e => {
+  autoRefresco = e.target.checked;
+  pintarSync();
+  if (autoRefresco) { cargar({ silencioso: true }); programarRefresco(); }
+  else clearTimeout(temporizador);
+});
+
+document.getElementById('bit-btn-refrescar').addEventListener('click', () =>
+  cargar({ silencioso: true }));
 
 document.querySelectorAll('.filter-chip').forEach(chip => {
   chip.addEventListener('click', () => {
@@ -609,4 +756,12 @@ if (miDepto) {
 document.getElementById('umbral-detenidos').textContent =
   ALERTA.ESTANCIA % 60 === 0 ? `${ALERTA.ESTANCIA / 60} h` : fmtDuracion(ALERTA.ESTANCIA);
 
-cargar();
+document.getElementById('chk-auto').checked = autoRefresco;
+document.getElementById('intervalo-refresco').textContent = `${AUTO_REFRESCO.SEGUNDOS} s`;
+
+/* El "hace X" avanza solo, aparte del ciclo de red, para que el indicador
+   no se quede congelado entre consulta y consulta. */
+setInterval(pintarSync, 5000);
+pintarSync();
+
+cargar().then(programarRefresco);

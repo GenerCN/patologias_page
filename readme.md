@@ -299,7 +299,39 @@ La estancia del departamento actual todavía no tiene un valor final, así que e
 
 Todas las marcas de tiempo se guardan en **ISO 8601 UTC** y se convierten a hora local (`es-MX`, reloj de 24 h) al mostrarlas, para que no dependan de la zona horaria configurada en el proyecto de Apps Script.
 
-### 6.5 Alertas
+### 6.5 Refresco automático
+
+Apps Script **no puede notificar al navegador**: no hay websockets ni push desde Sheets. La única vía es que la página consulte cada cierto tiempo, así que el módulo hace *polling* — pero acotado para que no se note ni castigue la cuota del script.
+
+Se configura en `AUTO_REFRESCO` de `js/bitacora/config.js`:
+
+| Ajuste | Valor | Por qué |
+| :--- | :--- | :--- |
+| `SEGUNDOS` | `45` | Un expediente cambia de departamento cada varios minutos, no cada segundo. Bajarlo de 20 s no aporta y multiplica las llamadas. |
+| `ACTIVO_POR_DEFECTO` | `true` | Se puede pausar desde la casilla *"Actualizar cada 45 s"* de la barra de filtros. |
+
+Reglas que evitan que el refresco estorbe o desperdicie llamadas:
+
+* **Pausa con la pestaña oculta.** `visibilitychange` detiene las consultas cuando nadie está viendo, y al volver se pone al día de inmediato. Sin esto, una pantalla olvidada toda la noche seguiría consultando.
+* **Freno anti-ráfaga.** Alternar pestañas dispara `visibilitychange` repetidamente; solo se consulta si los datos ya tienen media vuelta de antigüedad.
+* **`setTimeout` encadenado, no `setInterval`.** Si Apps Script tarda (los arranques en frío pasan de 5 s) las llamadas no se encaballan.
+* **No pisa una escritura en curso.** La bandera `guardando` bloquea el refresco mientras se registra un movimiento.
+* **Conserva la búsqueda.** `vistaActual` recuerda si se está viendo la lista o un resultado de búsqueda, y el refresco repite la misma consulta en vez de devolver al usuario a la lista completa cada 45 s.
+* **No destruye el panel abierto.** El refresco solo repinta la tabla; el panel lateral y lo que el usuario esté escribiendo en el campo de observaciones quedan intactos. La fila resaltada se vuelve a marcar tras repintar.
+* **Si falla la red, no borra nada.** Un error en modo silencioso solo cambia el indicador a *"Sin conexión — se reintentará"*; la tabla se queda como estaba.
+
+#### Aviso de llegadas
+
+En cada refresco silencioso se comparan las firmas (`estado | departamento actual | destino pendiente | última actualización`) contra las de la vuelta anterior. Si aparece un expediente **dirigido a mi departamento** que antes no estaba o cambió, salta un aviso:
+
+> *Recuperación te envió el expediente 10428 — Guadalupe Hernández Soto*
+
+Además, el número de expedientes esperando mi acuse de recibo se escribe en el **título de la pestaña** — `(2) Centro Médico San Lucas — Bitácora…` — para que se vea aunque la bitácora esté en segundo plano, que es donde va a estar la mayor parte del turno.
+
+> [!NOTE]
+> Cada consulta lee la hoja `Expedientes` completa. Con los volúmenes de una clínica esto es irrelevante durante años, pero si algún día la hoja llega a decenas de miles de filas, el refresco se irá haciendo lento. La palanca es subir `SEGUNDOS`.
+
+### 6.6 Alertas
 
 Configurables en la constante `ALERTA` de `js/bitacora/config.js`:
 
@@ -310,7 +342,7 @@ Configurables en la constante `ALERTA` de `js/bitacora/config.js`:
 
 Al superarse, la fila se pinta de ámbar con un ⚠ y el expediente aparece en el contador *"Detenidos"* y en su filtro.
 
-### 6.6 Deshacer
+### 6.7 Deshacer
 
 Solo el superusuario, y de un nivel. Revierte el último paso respetando su granularidad real:
 

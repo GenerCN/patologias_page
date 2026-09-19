@@ -106,6 +106,20 @@
         <input type="checkbox" id="chk-cerrados">
         Incluir expedientes cerrados
       </label>
+
+      <span class="bit-sep"></span>
+
+      <label class="bit-check" title="Consulta el servidor cada cierto tiempo y avisa cuando te envían un expediente">
+        <input type="checkbox" id="chk-auto" checked>
+        Actualizar cada <span id="intervalo-refresco">45 s</span>
+      </label>
+      <button type="button" id="bit-btn-refrescar" class="bit-refrescar" title="Actualizar ahora">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M4 4v6h6M20 20v-6h-6"/>
+          <path d="M20 10a8 8 0 0 0-14.3-3.4L4 10m0 4a8 8 0 0 0 14.3 3.4L20 14"/>
+        </svg>
+      </button>
+      <span id="bit-sync" class="bit-sync"></span>
     </div>
 
     <!-- Stats -->
