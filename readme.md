@@ -299,7 +299,35 @@ La estancia del departamento actual todavía no tiene un valor final, así que e
 
 Todas las marcas de tiempo se guardan en **ISO 8601 UTC** y se convierten a hora local (`es-MX`, reloj de 24 h) al mostrarlas, para que no dependan de la zona horaria configurada en el proyecto de Apps Script.
 
-### 6.5 Refresco automático
+### 6.5 Operaciones en lote
+
+Un departamento rara vez mueve un expediente a la vez: Preoperatorio manda cinco a Quirófanos en la misma vuelta, y Admisión da de salida ocho en la mañana. Registrarlos de uno en uno es justo lo que hace que se deje de registrar.
+
+**Mover varios que ya existen.** Cada renglón de la tabla tiene una casilla, y el encabezado marca toda la página visible. Al seleccionar algo aparece una barra con `Entregar`, `Confirmar recepción` y `Cerrar`.
+
+Cada botón muestra **sobre cuántos de los seleccionados aplica de verdad** — `Confirmar recepción (3)` — y se deshabilita en cero. Mezclar expedientes en distinto estado es normal, y esconder ese número haría creer al usuario que movió más de lo que movió. Si todo lo entregable está en el mismo departamento, el selector de destino ofrece primero el siguiente paso habitual.
+
+**Dar de alta varios nuevos.** El panel de *Nueva salida* tiene dos modos: **Un expediente** y **Varios a la vez**. En el segundo se capturan renglones de `número + nombre` hacia un destino común. Cada renglón consulta al salir del campo de número y se marca solo:
+
+| Renglón | Qué pasa |
+| :--- | :--- |
+| Expediente nuevo | Se pide el nombre normalmente. |
+| Existe y está cerrado | Completa el nombre solo y avisa *"Ya existe · se abrirá el ciclo 2"*. |
+| Existe y sigue activo | Se marca en rojo con dónde está, y bloquea el guardado hasta quitarlo. |
+
+`Enter` en el campo de nombre del último renglón agrega otro, para capturar sin soltar el teclado.
+
+#### Resultado parcial
+
+Un lote **no es todo o nada**. Si 7 de 8 expedientes se movieron, esos 7 realmente cambiaron de lugar y revertirlos sería mentir sobre dónde están los papeles. El backend devuelve `procesados` y `fallidos` con el motivo de cada rechazo, y el panel lateral lo desglosa. Los que sí se procesaron se desmarcan; los rechazados **siguen seleccionados** para poder reintentarlos tras corregir.
+
+#### Un solo motor
+
+Las operaciones individuales y las de lote comparten el mismo código: una operación individual es un lote de un elemento. Las reglas de permiso y de estado están escritas una sola vez y no pueden desincronizarse entre ambos caminos.
+
+El motor lee cada hoja **una vez**, muta en memoria y escribe al final. La versión anterior escribía celda por celda, lo que habría convertido un lote de 10 expedientes en cientos de llamadas a Sheets. Límites: **50 expedientes** por movimiento (`BIT_MAX_LOTE`) y **25** por alta múltiple (`BIT_MAX_ALTA`, el payload es mayor porque lleva los nombres).
+
+### 6.6 Refresco automático
 
 Apps Script **no puede notificar al navegador**: no hay websockets ni push desde Sheets. La única vía es que la página consulte cada cierto tiempo, así que el módulo hace *polling* — pero acotado para que no se note ni castigue la cuota del script.
 
@@ -331,7 +359,7 @@ Además, el número de expedientes esperando mi acuse de recibo se escribe en el
 > [!NOTE]
 > Cada consulta lee la hoja `Expedientes` completa. Con los volúmenes de una clínica esto es irrelevante durante años, pero si algún día la hoja llega a decenas de miles de filas, el refresco se irá haciendo lento. La palanca es subir `SEGUNDOS`.
 
-### 6.6 Alertas
+### 6.7 Alertas
 
 Configurables en la constante `ALERTA` de `js/bitacora/config.js`:
 
@@ -342,7 +370,7 @@ Configurables en la constante `ALERTA` de `js/bitacora/config.js`:
 
 Al superarse, la fila se pinta de ámbar con un ⚠ y el expediente aparece en el contador *"Detenidos"* y en su filtro.
 
-### 6.7 Deshacer
+### 6.8 Deshacer
 
 Solo el superusuario, y de un nivel. Revierte el último paso respetando su granularidad real:
 

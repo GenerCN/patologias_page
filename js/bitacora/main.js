@@ -54,6 +54,9 @@ let temporizador  = null;
 let guardando     = false;   // hay una escritura en curso
 let ultimaSync    = null;    // Date.now() de la última carga exitosa
 
+/** Números de expediente marcados con casilla, para operar en lote. */
+const seleccion = new Set();
+
 const TITULO_BASE = document.title;
 
 const FILTROS = {
@@ -135,7 +138,13 @@ function renderVista() {
   const inicio     = (paginaActual - 1) * PAGE_SIZE;
   const pagina     = filtrados.slice(inicio, inicio + PAGE_SIZE);
 
-  renderTabla(pagina, relojServidor, abrirExpediente);
+  /* Un expediente que salió de la vista (se cerró, cambió el filtro, se buscó
+     otra cosa) no puede seguir seleccionado: la barra de lote diría que va a
+     operar sobre algo que el usuario ya no está viendo. */
+  const visibles = new Set(expedientes.map(e => e.expediente));
+  [...seleccion].forEach(k => { if (!visibles.has(k)) seleccion.delete(k); });
+
+  renderTabla(pagina, relojServidor, abrirExpediente, seleccion, toggleSeleccion);
   renderPagination(document.getElementById('pagination'), {
     page: paginaActual,
     totalPages: totalPags,
@@ -156,6 +165,147 @@ function renderVista() {
 
   actualizarStats(filtrados.length);
   actualizarTitulo();
+  pintarBarraLote(pagina);
+}
+
+/* ── Selección múltiple ───────────────────────────────────────────────── */
+
+function toggleSeleccion(clave, marcada) {
+  if (marcada) seleccion.add(clave);
+  else seleccion.delete(clave);
+  pintarBarraLote();
+}
+
+function seleccionados() {
+  return expedientes.filter(e => seleccion.has(e.expediente));
+}
+
+/**
+ * Pinta la barra de lote. Cada botón muestra sobre cuántos de los
+ * seleccionados aplica realmente: al mezclar expedientes en distinto estado
+ * es normal que una acción sirva solo para algunos, y esconder ese número
+ * haría que el usuario creyera que movió más de lo que movió.
+ */
+function pintarBarraLote(pagina) {
+  const barra = document.getElementById('bit-lote');
+  const sel = seleccionados();
+
+  if (pagina) {
+    const chkTodos = document.getElementById('chk-todos');
+    const marcables = pagina.length;
+    const marcados = pagina.filter(e => seleccion.has(e.expediente)).length;
+    chkTodos.checked = marcables > 0 && marcados === marcables;
+    chkTodos.indeterminate = marcados > 0 && marcados < marcables;
+  }
+
+  if (!sel.length) { barra.style.display = 'none'; return; }
+  barra.style.display = '';
+  document.getElementById('bit-lote-count').textContent = sel.length;
+
+  const entregables = sel.filter(e => puedeEntregar(usuario, e));
+  const recibibles  = sel.filter(e => puedeRecibir(usuario, e));
+  const cerrables   = sel.filter(e => puedeCerrar(usuario, e));
+
+  const marcar = (id, lista, etiqueta) => {
+    const btn = document.getElementById(id);
+    btn.textContent = `${etiqueta} (${lista.length})`;
+    btn.disabled = lista.length === 0;
+  };
+  marcar('bit-lote-entregar', entregables, 'Entregar');
+  marcar('bit-lote-recibir',  recibibles,  'Confirmar recepción');
+  marcar('bit-lote-cerrar',   cerrables,   'Cerrar');
+
+  /* Si todo lo entregable está en el mismo departamento se ofrece el
+     siguiente paso habitual primero; si está repartido, la lista completa. */
+  const deptos = [...new Set(entregables.map(e => e.departamento_actual))];
+  const select = document.getElementById('bit-lote-destino');
+  const previo = select.value;
+
+  let html;
+  if (deptos.length === 1) {
+    const { sugeridos, resto } = destinosDesde(deptos[0]);
+    html =
+      (sugeridos.length ? `<optgroup label="Siguiente paso habitual">${
+        sugeridos.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('')}</optgroup>` : '') +
+      (resto.length ? `<optgroup label="Otros departamentos">${
+        resto.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('')}</optgroup>` : '');
+  } else {
+    html = DEPARTAMENTOS.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+  }
+
+  if (select.innerHTML !== html) {
+    select.innerHTML = html;
+    if (previo && [...select.options].some(o => o.value === previo)) select.value = previo;
+  }
+  select.disabled = entregables.length === 0;
+}
+
+function limpiarSeleccion() {
+  seleccion.clear();
+  document.getElementById('bit-lote-obs').value = '';
+  renderVista();
+}
+
+/** Muestra en el panel el detalle de un lote con rechazos. */
+function mostrarResultadoLote(res) {
+  cerrarPanel();
+  document.getElementById('panel-title').textContent = 'Resultado de la operación';
+  document.getElementById('panel-subtitle').textContent =
+    `${res.procesados.length} procesado(s) · ${res.fallidos.length} sin procesar`;
+
+  document.querySelector('#side-panel .panel-body').innerHTML = `
+    ${res.procesados.length ? `
+      <div class="section-label">Se movieron (${res.procesados.length})</div>
+      <div class="bit-lote-lista">${
+        res.procesados.map(c => `<span class="bit-badge bit-badge-activo">${escHtml(c)}</span>`).join('')
+      }</div>` : ''}
+
+    <div class="section-label">No se pudieron mover (${res.fallidos.length})</div>
+    <ul class="bit-fallidos">
+      ${res.fallidos.map(f => `
+        <li>
+          <strong>${escHtml(f.expediente)}</strong>
+          <span>${escHtml(f.motivo)}</span>
+        </li>`).join('')}
+    </ul>
+    <p class="bit-nota">
+      Los expedientes que sí se movieron quedaron registrados; no se revierten
+      porque esos papeles realmente cambiaron de lugar.
+    </p>`;
+
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('app-body').classList.add('panel-open');
+}
+
+/** Corre una acción en lote y reporta el resultado. */
+async function ejecutarLote(boton, claves, fn) {
+  if (!claves.length) return;
+
+  const etiqueta = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = 'Guardando…';
+  setStatus('loading', `Procesando ${claves.length} expediente(s)…`);
+  guardando = true;
+
+  try {
+    const res = await fn();
+    setStatus('online', 'Guardado');
+    showToast(res.mensaje, res.fallidos.length > 0);
+
+    // Solo se desmarca lo que sí se procesó; lo rechazado sigue seleccionado.
+    res.procesados.forEach(c => seleccion.delete(c));
+    if (!res.fallidos.length) document.getElementById('bit-lote-obs').value = '';
+
+    await cargar();
+    if (res.fallidos.length) mostrarResultadoLote(res);
+  } catch (e) {
+    setStatus('error', 'Error al guardar');
+    showToast(e.message, true);
+  } finally {
+    guardando = false;
+    boton.disabled = false;
+    boton.textContent = etiqueta;
+  }
 }
 
 /* ── Carga de datos ───────────────────────────────────────────────────── */
@@ -519,6 +669,90 @@ async function abrirExpediente(exp, tr) {
 
 /* ── Panel: nueva salida (Admisión) ───────────────────────────────────── */
 
+/**
+ * Consulta si el expediente ya existe y completa el nombre desde el registro
+ * guardado. Se comparte entre la captura de uno y la de varios.
+ *
+ * Devuelve el estado para que quien llama decida si habilitar el botón:
+ *   'nuevo' | 'reapertura' | 'activo' | 'vacio' | 'error'
+ */
+function vincularAutocompletado(inpExp, inpNombre, aviso, alCambiar) {
+  let ultimaClave = null;
+  let autocompletado = false;
+
+  async function consultar() {
+    const clave = inpExp.value.trim();
+    if (clave === ultimaClave) return;
+    ultimaClave = clave;
+
+    inpNombre.readOnly = false;
+    inpNombre.classList.remove('field-readonly');
+    if (aviso) { aviso.style.display = 'none'; aviso.className = 'bit-aviso'; }
+
+    /* Si el nombre lo puso el autocompletado de otro expediente hay que
+       borrarlo: dejarlo ahí es cómo se termina guardando a un paciente con
+       el nombre de otro. Un nombre tecleado a mano sí se respeta. */
+    if (autocompletado) { inpNombre.value = ''; autocompletado = false; }
+
+    if (!clave) { alCambiar('vacio', null); return; }
+
+    if (aviso) {
+      aviso.style.display = '';
+      aviso.textContent = 'Verificando si el expediente ya existe…';
+    }
+
+    let res;
+    try {
+      res = await api.consultar(clave);
+    } catch (e) {
+      if (aviso) {
+        aviso.textContent = 'No se pudo verificar: ' + e.message +
+                            ' Puedes continuar; se validará al guardar.';
+      }
+      alCambiar('error', null);
+      return;
+    }
+
+    // El usuario pudo seguir escribiendo mientras respondía el servidor.
+    if (inpExp.value.trim() !== clave) return;
+
+    if (!res.encontrado) {
+      if (aviso) aviso.style.display = 'none';
+      alCambiar('nuevo', null);
+      return;
+    }
+
+    const prev = res.expediente;
+    inpNombre.value = prev.nombre_paciente;
+    autocompletado = true;
+    inpNombre.readOnly = true;
+    inpNombre.classList.add('field-readonly');
+
+    if (prev.estado === ESTADO.CERRADO) {
+      if (aviso) {
+        aviso.className = 'bit-aviso bit-aviso-ok';
+        aviso.innerHTML =
+          `Este expediente ya está en la bitácora. Se abrirá el <strong>ciclo ${prev.ciclo + 1}</strong> ` +
+          `conservando sus ${prev.total_movimientos} movimiento(s) anteriores. ` +
+          `El nombre se toma del registro existente.`;
+      }
+      alCambiar('reapertura', prev);
+    } else {
+      if (aviso) {
+        aviso.className = 'bit-aviso bit-aviso-error';
+        aviso.innerHTML =
+          `Este expediente sigue activo: <strong>${escHtml(prev.estado)}</strong> · ` +
+          `${escHtml(prev.estado === ESTADO.TRANSITO ? prev.destino_pendiente : prev.departamento_actual)}. ` +
+          `No se puede volver a dar de salida hasta que Admisión lo cierre.`;
+      }
+      alCambiar('activo', prev);
+    }
+  }
+
+  inpExp.addEventListener('change', consultar);
+  return consultar;
+}
+
 function abrirNuevo() {
   if (filaActiva) filaActiva.classList.remove('active');
   filaActiva = null;
@@ -528,6 +762,31 @@ function abrirNuevo() {
   document.getElementById('panel-subtitle').textContent = 'Admisión da de salida el expediente';
 
   document.querySelector('#side-panel .panel-body').innerHTML = `
+    <div class="bit-modos">
+      <button type="button" class="bit-modo activo" data-modo="uno">Un expediente</button>
+      <button type="button" class="bit-modo" data-modo="varios">Varios a la vez</button>
+    </div>
+    <div id="bit-nuevo-cuerpo"></div>`;
+
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('app-body').classList.add('panel-open');
+
+  document.querySelectorAll('.bit-modo').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.bit-modo').forEach(b => b.classList.remove('activo'));
+      btn.classList.add('activo');
+      if (btn.dataset.modo === 'uno') pintarNuevoUno();
+      else pintarNuevoVarios();
+    });
+  });
+
+  pintarNuevoUno();
+}
+
+/* ── Modo: un expediente ──────────────────────────────────────────────── */
+
+function pintarNuevoUno() {
+  document.getElementById('bit-nuevo-cuerpo').innerHTML = `
     <div class="bit-accion">
       <div class="field-group">
         <label for="bit-nuevo-exp">Número de expediente *</label>
@@ -554,85 +813,15 @@ function abrirNuevo() {
       </p>
     </div>`;
 
-  document.getElementById('side-panel').classList.add('open');
-  document.getElementById('app-body').classList.add('panel-open');
-
   const inpExp    = document.getElementById('bit-nuevo-exp');
   const inpNombre = document.getElementById('bit-nuevo-nombre');
   const aviso     = document.getElementById('bit-nuevo-aviso');
   const btnCrear  = document.getElementById('bit-btn-crear');
   inpExp.focus();
 
-  /* Al salir del campo se consulta si el expediente ya existe. Así Admisión
-     no reteclea el nombre (y no lo corrompe con una variante distinta), y se
-     detecta antes de guardar si el expediente sigue activo en otro lado. */
-  let ultimaClaveConsultada = null;
-  let nombreAutocompletado  = false;
-
-  async function consultarExpediente() {
-    const clave = inpExp.value.trim();
-    if (clave === ultimaClaveConsultada) return;
-    ultimaClaveConsultada = clave;
-
-    inpNombre.readOnly = false;
-    inpNombre.classList.remove('field-readonly');
-    btnCrear.disabled = false;
-    aviso.style.display = 'none';
-    aviso.className = 'bit-aviso';
-
-    /* Si el nombre lo puso el autocompletado de otro expediente hay que
-       borrarlo: dejarlo ahí es cómo se termina guardando a un paciente con
-       el nombre de otro. Un nombre tecleado a mano sí se respeta. */
-    if (nombreAutocompletado) {
-      inpNombre.value = '';
-      nombreAutocompletado = false;
-    }
-
-    if (!clave) return;
-
-    aviso.style.display = '';
-    aviso.textContent = 'Verificando si el expediente ya existe…';
-
-    let res;
-    try {
-      res = await api.consultar(clave);
-    } catch (e) {
-      aviso.textContent = 'No se pudo verificar el expediente: ' + e.message +
-                          ' Puedes continuar; el sistema lo validará al guardar.';
-      return;
-    }
-
-    // El usuario pudo haber seguido escribiendo mientras respondía el servidor.
-    if (inpExp.value.trim() !== clave) return;
-
-    if (!res.encontrado) {
-      aviso.style.display = 'none';
-      return;
-    }
-
-    const prev = res.expediente;
-    inpNombre.value = prev.nombre_paciente;
-    nombreAutocompletado = true;
-    inpNombre.readOnly = true;
-    inpNombre.classList.add('field-readonly');
-
-    if (prev.estado === ESTADO.CERRADO) {
-      aviso.className = 'bit-aviso bit-aviso-ok';
-      aviso.innerHTML =
-        `Este expediente ya está en la bitácora. Se abrirá el <strong>ciclo ${prev.ciclo + 1}</strong> ` +
-        `conservando sus ${prev.total_movimientos} movimiento(s) anteriores. ` +
-        `El nombre se toma del registro existente.`;
-    } else {
-      aviso.className = 'bit-aviso bit-aviso-error';
-      aviso.innerHTML =
-        `Este expediente sigue activo: <strong>${escHtml(prev.estado)}</strong> · ` +
-        `${escHtml(prev.estado === ESTADO.TRANSITO ? prev.destino_pendiente : prev.departamento_actual)}. ` +
-        `No se puede volver a dar de salida hasta que Admisión lo cierre.`;
-      btnCrear.disabled = true;
-    }
-  }
-
-  inpExp.addEventListener('change', consultarExpediente);
+  vincularAutocompletado(inpExp, inpNombre, aviso, estado => {
+    btnCrear.disabled = estado === 'activo';
+  });
 
   btnCrear.addEventListener('click', async () => {
     const expediente = inpExp.value.trim();
@@ -643,9 +832,8 @@ function abrirNuevo() {
     if (!expediente) { showToast('El número de expediente es obligatorio.', true); return; }
     if (!nombre)     { showToast('El nombre del paciente es obligatorio.', true); return; }
 
-    const boton = btnCrear;
-    boton.disabled = true;
-    boton.textContent = 'Guardando…';
+    btnCrear.disabled = true;
+    btnCrear.textContent = 'Guardando…';
     setStatus('loading', 'Guardando…');
     guardando = true;
 
@@ -658,8 +846,8 @@ function abrirNuevo() {
       if (creado) abrirExpediente(creado, null);
       else cerrarPanel();
     } catch (e) {
-      boton.disabled = false;
-      boton.textContent = 'Registrar salida';
+      btnCrear.disabled = false;
+      btnCrear.textContent = 'Registrar salida';
       setStatus('error', 'Error al guardar');
       showToast(e.message, true);
     } finally {
@@ -667,6 +855,178 @@ function abrirNuevo() {
     }
   });
 }
+
+/* ── Modo: varios expedientes ─────────────────────────────────────────── */
+
+const MAX_ALTA_LOTE = 25;   // debe coincidir con BIT_MAX_ALTA del backend
+let contadorRenglon = 0;
+
+function pintarNuevoVarios() {
+  document.getElementById('bit-nuevo-cuerpo').innerHTML = `
+    <div class="bit-accion">
+      <p class="bit-accion-texto">
+        Captura los expedientes que salen al mismo destino. Al salir del campo
+        de número, los que ya existen completan su nombre solos.
+      </p>
+
+      <div class="bit-renglones-encabezado">
+        <span>Expediente</span><span>Nombre del paciente</span><span></span>
+      </div>
+      <div id="bit-renglones"></div>
+
+      <button type="button" class="bit-agregar-renglon" id="bit-add-renglon">
+        + Agregar renglón
+      </button>
+
+      <div class="field-group">
+        <label for="bit-varios-destino">Entregar todos a *</label>
+        <select id="bit-varios-destino">${opcionesSalidaAdmision()}</select>
+      </div>
+      <div class="field-group">
+        <label for="bit-varios-obs">Observaciones para todos (opcional)</label>
+        <input type="text" id="bit-varios-obs" placeholder="Ej. cirugías programadas del turno matutino">
+      </div>
+
+      <button class="btn btn-new" id="bit-btn-crear-varios">Registrar salidas</button>
+      <p class="bit-nota">
+        Máximo ${MAX_ALTA_LOTE} expedientes por operación. Los renglones vacíos
+        se ignoran. Si alguno no se puede procesar, los demás sí se registran y
+        se te muestra el detalle.
+      </p>
+    </div>`;
+
+  for (let i = 0; i < 3; i++) agregarRenglon();
+
+  document.getElementById('bit-add-renglon').addEventListener('click', () => {
+    const cont = document.getElementById('bit-renglones');
+    if (cont.children.length >= MAX_ALTA_LOTE) {
+      showToast(`Máximo ${MAX_ALTA_LOTE} expedientes por operación.`, true);
+      return;
+    }
+    agregarRenglon().querySelector('input').focus();
+  });
+
+  document.getElementById('bit-btn-crear-varios')
+    .addEventListener('click', registrarVariasSalidas);
+}
+
+function agregarRenglon() {
+  const cont = document.getElementById('bit-renglones');
+  const id = ++contadorRenglon;
+
+  const fila = document.createElement('div');
+  fila.className = 'bit-renglon';
+  fila.innerHTML = `
+    <input type="text" id="bit-r-exp-${id}" autocomplete="off" placeholder="10432">
+    <input type="text" id="bit-r-nom-${id}" autocomplete="off" placeholder="Nombre del paciente">
+    <button type="button" class="bit-quitar-renglon" title="Quitar renglón">&times;</button>
+    <span class="bit-renglon-aviso"></span>`;
+  cont.appendChild(fila);
+
+  const inpExp = fila.querySelector(`#bit-r-exp-${id}`);
+  const inpNom = fila.querySelector(`#bit-r-nom-${id}`);
+  const nota   = fila.querySelector('.bit-renglon-aviso');
+
+  vincularAutocompletado(inpExp, inpNom, null, (estado, prev) => {
+    fila.classList.remove('bit-renglon-ok', 'bit-renglon-mal');
+    if (estado === 'reapertura') {
+      fila.classList.add('bit-renglon-ok');
+      nota.textContent = `Ya existe · se abrirá el ciclo ${prev.ciclo + 1}`;
+    } else if (estado === 'activo') {
+      fila.classList.add('bit-renglon-mal');
+      nota.textContent = `Sigue activo en ${prev.estado === ESTADO.TRANSITO
+        ? prev.destino_pendiente : prev.departamento_actual} — no se puede sacar`;
+    } else {
+      nota.textContent = '';
+    }
+  });
+
+  // Enter en el último renglón agrega otro, para capturar sin soltar el teclado.
+  inpNom.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (fila === cont.lastElementChild) document.getElementById('bit-add-renglon').click();
+  });
+
+  fila.querySelector('.bit-quitar-renglon').addEventListener('click', () => {
+    fila.remove();
+    if (!cont.children.length) agregarRenglon();
+  });
+
+  return fila;
+}
+
+function leerRenglones() {
+  const items = [];
+  const vistos = new Set();
+  const duplicados = [];
+
+  document.querySelectorAll('#bit-renglones .bit-renglon').forEach(fila => {
+    const [inpExp, inpNom] = fila.querySelectorAll('input');
+    const expediente = inpExp.value.trim().toUpperCase();
+    const nombre     = inpNom.value.trim();
+    if (!expediente) return;                       // renglón vacío: se ignora
+    if (vistos.has(expediente)) { duplicados.push(expediente); return; }
+    vistos.add(expediente);
+    items.push({ expediente, nombre, bloqueado: fila.classList.contains('bit-renglon-mal') });
+  });
+
+  return { items, duplicados };
+}
+
+async function registrarVariasSalidas(ev) {
+  const { items, duplicados } = leerRenglones();
+
+  if (!items.length) {
+    showToast('Captura al menos un expediente.', true);
+    return;
+  }
+  if (duplicados.length) {
+    showToast(`Expediente repetido en la lista: ${duplicados.join(', ')}`, true);
+    return;
+  }
+
+  const bloqueados = items.filter(i => i.bloqueado);
+  if (bloqueados.length) {
+    showToast(`Quita los expedientes que siguen activos: ${
+      bloqueados.map(i => i.expediente).join(', ')}`, true);
+    return;
+  }
+
+  const sinNombre = items.filter(i => !i.nombre);
+  if (sinNombre.length) {
+    showToast(`Falta el nombre del paciente en: ${
+      sinNombre.map(i => i.expediente).join(', ')}`, true);
+    return;
+  }
+
+  const boton = ev.currentTarget;
+  const destino = document.getElementById('bit-varios-destino').value;
+  const obs     = document.getElementById('bit-varios-obs').value.trim();
+
+  const etiqueta = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = 'Guardando…';
+  setStatus('loading', `Registrando ${items.length} salida(s)…`);
+  guardando = true;
+
+  try {
+    const res = await api.aperturarLote({ items, destino, usuario, observaciones: obs });
+    setStatus('online', 'Guardado');
+    showToast(res.mensaje, res.fallidos.length > 0);
+    await cargar();
+    if (res.fallidos.length) mostrarResultadoLote(res);
+    else cerrarPanel();
+  } catch (e) {
+    setStatus('error', 'Error al guardar');
+    showToast(e.message, true);
+  } finally {
+    guardando = false;
+    boton.disabled = false;
+    boton.textContent = etiqueta;
+  }
+}
+
 
 function cerrarPanel() {
   document.getElementById('side-panel').classList.remove('open');
@@ -716,6 +1076,43 @@ document.getElementById('chk-auto').addEventListener('change', e => {
 
 document.getElementById('bit-btn-refrescar').addEventListener('click', () =>
   cargar({ silencioso: true }));
+
+/* ── Acciones en lote ─────────────────────────────────────────────────── */
+
+const obsLote = () => document.getElementById('bit-lote-obs').value.trim();
+
+document.getElementById('chk-todos').addEventListener('change', e => {
+  // Solo afecta a la página visible, no a los expedientes de otras páginas.
+  const filtrados = aplicarFiltros(expedientes).slice().sort(ordenar);
+  const inicio = (paginaActual - 1) * PAGE_SIZE;
+  filtrados.slice(inicio, inicio + PAGE_SIZE).forEach(exp => {
+    if (e.target.checked) seleccion.add(exp.expediente);
+    else seleccion.delete(exp.expediente);
+  });
+  renderVista();
+});
+
+document.getElementById('bit-lote-limpiar').addEventListener('click', limpiarSeleccion);
+
+document.getElementById('bit-lote-entregar').addEventListener('click', e => {
+  const claves = seleccionados().filter(x => puedeEntregar(usuario, x)).map(x => x.expediente);
+  const destino = document.getElementById('bit-lote-destino').value;
+  ejecutarLote(e.currentTarget, claves, () =>
+    api.entregarLote({ expedientes: claves, destino, usuario, observaciones: obsLote() }));
+});
+
+document.getElementById('bit-lote-recibir').addEventListener('click', e => {
+  const claves = seleccionados().filter(x => puedeRecibir(usuario, x)).map(x => x.expediente);
+  ejecutarLote(e.currentTarget, claves, () =>
+    api.recibirLote({ expedientes: claves, usuario, observaciones: obsLote() }));
+});
+
+document.getElementById('bit-lote-cerrar').addEventListener('click', e => {
+  const claves = seleccionados().filter(x => puedeCerrar(usuario, x)).map(x => x.expediente);
+  if (!confirm(`¿Cerrar ${claves.length} expediente(s)? Se dará por terminado su ciclo.`)) return;
+  ejecutarLote(e.currentTarget, claves, () =>
+    api.cerrarLote({ expedientes: claves, usuario, observaciones: obsLote() }));
+});
 
 document.querySelectorAll('.filter-chip').forEach(chip => {
   chip.addEventListener('click', () => {

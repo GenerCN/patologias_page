@@ -82,3 +82,38 @@ export function cerrar({ expediente, usuario, observaciones }) {
 export function deshacer({ expediente, usuario }) {
   return call({ action: 'bitDeshacer', expediente, usuario });
 }
+
+/* ── Operaciones en lote ────────────────────────────────────────────────
+   Devuelven { success, procesados: [clave], fallidos: [{expediente, motivo}],
+   mensaje }. El resultado es parcial a propósito: si 7 de 8 se movieron,
+   esos 7 cambiaron de lugar de verdad. */
+
+export function entregarLote({ expedientes, destino, usuario, observaciones }) {
+  return call({
+    action: 'bitEntregarLote',
+    expedientes: expedientes.join(','), destino, usuario, observaciones,
+  });
+}
+
+export function recibirLote({ expedientes, usuario, observaciones }) {
+  return call({
+    action: 'bitRecibirLote',
+    expedientes: expedientes.join(','), usuario, observaciones,
+  });
+}
+
+export function cerrarLote({ expedientes, usuario, observaciones }) {
+  return call({
+    action: 'bitCerrarLote',
+    expedientes: expedientes.join(','), usuario, observaciones,
+  });
+}
+
+/** items: [{ expediente, nombre }] — el nombre solo se usa para los nuevos. */
+export function aperturarLote({ items, destino, usuario, observaciones }) {
+  return call({
+    action: 'bitAperturarLote',
+    items: JSON.stringify(items.map(i => ({ e: i.expediente, n: i.nombre }))),
+    destino, usuario, observaciones,
+  });
+}

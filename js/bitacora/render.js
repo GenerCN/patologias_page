@@ -1,7 +1,7 @@
 import { ESTADO, ALERTA } from './config.js';
 import { escHtml } from '../utils.js';
 
-const COLSPAN = 7;
+const COLSPAN = 8;   // 7 de datos + la casilla de selección
 
 /* ── Formateo ─────────────────────────────────────────────────────────── */
 
@@ -93,7 +93,7 @@ export function mostrarErrorTabla(msg) {
     </td></tr>`;
 }
 
-export function renderTabla(expedientes, ahora, onRowClick) {
+export function renderTabla(expedientes, ahora, onRowClick, seleccion = null, onToggleSel = null) {
   const tbody = document.getElementById('table-body');
 
   if (!expedientes.length) {
@@ -111,8 +111,13 @@ export function renderTabla(expedientes, ahora, onRowClick) {
 
   tbody.innerHTML = expedientes.map((exp, i) => {
     const { min, alerta } = estadoDeAlerta(exp, ahora);
+    const marcada = seleccion ? seleccion.has(exp.expediente) : false;
     return `
     <tr data-idx="${i}"${alerta ? ' class="bit-row-alerta"' : ''}>
+      <td class="bit-col-sel">
+        <input type="checkbox" class="bit-chk-fila" data-exp="${escHtml(exp.expediente)}"
+               aria-label="Seleccionar expediente ${escHtml(exp.expediente)}"${marcada ? ' checked' : ''}>
+      </td>
       <td class="folio">${escHtml(exp.expediente || '—')}</td>
       <td style="max-width:200px">${escHtml(exp.nombre_paciente || '—')}</td>
       <td>${celdaUbicacion(exp)}</td>
@@ -126,9 +131,18 @@ export function renderTabla(expedientes, ahora, onRowClick) {
   }).join('');
 
   tbody.querySelectorAll('tr').forEach(tr => {
-    tr.addEventListener('click', () =>
-      onRowClick(expedientes[parseInt(tr.dataset.idx, 10)], tr));
+    tr.addEventListener('click', e => {
+      // Marcar la casilla no debe abrir el panel del expediente.
+      if (e.target.closest('.bit-col-sel')) return;
+      onRowClick(expedientes[parseInt(tr.dataset.idx, 10)], tr);
+    });
   });
+
+  if (onToggleSel) {
+    tbody.querySelectorAll('.bit-chk-fila').forEach(chk => {
+      chk.addEventListener('change', () => onToggleSel(chk.dataset.exp, chk.checked));
+    });
+  }
 }
 
 /* ── Línea de tiempo del expediente ───────────────────────────────────── */

@@ -45,6 +45,128 @@
   white-space: nowrap;
 }
 
+/* Columna de selección */
+.bit-col-sel {
+  width: 34px;
+  padding-right: 0 !important;
+  text-align: center;
+}
+.bit-col-sel input { accent-color: var(--blue-500); cursor: pointer; }
+thead .bit-col-sel input { accent-color: var(--blue-300); }
+
+/* Barra de acciones en lote */
+.bit-lote {
+  background: var(--blue-900);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-md);
+}
+.bit-lote-fila {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.bit-lote-n {
+  font-size: 12px; color: var(--blue-300); white-space: nowrap;
+}
+.bit-lote-n strong { color: var(--white); font-size: 15px; }
+#bit-lote-destino {
+  padding: 7px 10px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius);
+  font-size: 13px; background: var(--white); color: var(--gray-700);
+  outline: none; max-width: 190px;
+}
+#bit-lote-destino:disabled { opacity: .4; }
+.bit-lote .btn:disabled { opacity: .35; cursor: not-allowed; }
+.bit-lote .btn:disabled:hover { background: inherit; }
+.bit-lote-limpiar {
+  background: none; border: none; cursor: pointer;
+  color: var(--blue-300); font-size: 12px; font-weight: 600;
+  text-decoration: underline; padding: 4px;
+}
+.bit-lote-limpiar:hover { color: var(--white); }
+.bit-lote-obs {
+  width: 100%; margin-top: 10px;
+  padding: 8px 11px;
+  border: 1.5px solid transparent; border-radius: var(--radius);
+  font-size: 13px; outline: none;
+}
+.bit-lote-lista { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 4px; }
+
+.bit-fallidos { list-style: none; }
+.bit-fallidos li {
+  padding: 9px 11px; margin-bottom: 7px;
+  background: var(--red-bg); border-left: 3px solid var(--red);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px; line-height: 1.5;
+}
+.bit-fallidos strong { display: block; color: #7F1D1D; }
+.bit-fallidos span { color: var(--gray-700); }
+
+/* Selector de modo en el panel de nueva salida */
+.bit-modos {
+  display: flex; gap: 6px; margin-bottom: 16px;
+  background: var(--gray-100); padding: 4px; border-radius: 8px;
+}
+.bit-modo {
+  flex: 1; padding: 7px 10px;
+  border: none; border-radius: 6px; background: none;
+  font-size: 12px; font-weight: 600; color: var(--gray-500);
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.bit-modo:hover { color: var(--blue-700); }
+.bit-modo.activo {
+  background: var(--white); color: var(--blue-900);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Captura de varios expedientes */
+.bit-renglones-encabezado {
+  display: grid; grid-template-columns: 1fr 1.4fr 26px; gap: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--gray-500);
+  margin-bottom: 6px;
+}
+.bit-renglon {
+  display: grid; grid-template-columns: 1fr 1.4fr 26px; gap: 6px;
+  margin-bottom: 6px; align-items: center;
+}
+.bit-renglon input {
+  width: 100%; padding: 7px 9px;
+  border: 1.5px solid var(--gray-300); border-radius: 6px;
+  font-size: 13px; color: var(--gray-700); background: var(--white);
+  outline: none; transition: border-color .2s;
+}
+.bit-renglon input:focus { border-color: var(--blue-500); }
+.bit-renglon input.field-readonly {
+  background: var(--gray-100) !important; color: var(--gray-500) !important;
+}
+.bit-quitar-renglon {
+  width: 24px; height: 24px;
+  border: none; border-radius: 5px; background: none;
+  color: var(--gray-500); font-size: 17px; line-height: 1; cursor: pointer;
+  transition: color .15s, background .15s;
+}
+.bit-quitar-renglon:hover { color: var(--red); background: var(--red-bg); }
+.bit-renglon-aviso {
+  grid-column: 1 / -1;
+  font-size: 10.5px; line-height: 1.4; color: var(--gray-500);
+  padding-left: 2px;
+}
+.bit-renglon-aviso:empty { display: none; }
+.bit-renglon-ok  .bit-renglon-aviso { color: var(--blue-700); }
+.bit-renglon-mal .bit-renglon-aviso { color: var(--red); }
+.bit-renglon-mal input:first-child { border-color: var(--red); }
+
+.bit-agregar-renglon {
+  width: 100%; margin: 4px 0 16px;
+  padding: 7px; border: 1px dashed var(--blue-300); border-radius: 6px;
+  background: none; color: var(--blue-700);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.bit-agregar-renglon:hover { background: var(--blue-100); }
+
 /* Estado en tabla */
 .bit-badge {
   display: inline-block;

@@ -132,12 +132,31 @@
       </div>
     </div>
 
+    <!-- Acciones en lote -->
+    <div id="bit-lote" class="bit-lote" style="display:none">
+      <div class="bit-lote-fila">
+        <span class="bit-lote-n"><strong id="bit-lote-count">0</strong> seleccionados</span>
+        <select id="bit-lote-destino" aria-label="Departamento destino"></select>
+        <button class="btn btn-primary" id="bit-lote-entregar">Entregar</button>
+        <button class="btn btn-new" id="bit-lote-recibir">Confirmar recepción</button>
+        <button class="btn btn-outline" id="bit-lote-cerrar">Cerrar</button>
+        <div class="header-spacer"></div>
+        <button class="bit-lote-limpiar" id="bit-lote-limpiar">Quitar selección</button>
+      </div>
+      <input type="text" id="bit-lote-obs" class="bit-lote-obs"
+             placeholder="Observaciones para todo el lote (opcional)">
+    </div>
+
     <!-- Tabla -->
     <div class="table-card">
       <div class="table-scroll">
         <table id="records-table">
           <thead>
             <tr>
+              <th class="bit-col-sel">
+                <input type="checkbox" id="chk-todos" title="Seleccionar todo lo visible"
+                       aria-label="Seleccionar todos los expedientes de esta página">
+              </th>
               <th>Expediente</th>
               <th>Paciente</th>
               <th>Ubicación</th>
@@ -148,7 +167,7 @@
             </tr>
           </thead>
           <tbody id="table-body">
-            <tr><td colspan="7">
+            <tr><td colspan="8">
               <div class="state-box"><div class="spinner"></div><p>Cargando expedientes…</p></div>
             </td></tr>
           </tbody>
