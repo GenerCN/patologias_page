@@ -35,11 +35,22 @@ export const USUARIO_DEPTO = {
 /** Pueden operar a nombre de cualquier departamento. */
 export const SUPERUSUARIOS = ['admin'];
 
+/**
+ * Ubicación del archivo clínico. NO es un departamento: no está en
+ * DEPARTAMENTOS, nadie la representa y no aparece como destino de una
+ * entrega. Solo Admisión mete y saca expedientes de ahí.
+ * Duplicado en BIT_ARCHIVO de apps_script/Codigo.gs.
+ */
+export const ARCHIVO = 'Archivo';
+
 export const ESTADO = {
   DEPTO:    'En departamento',
   TRANSITO: 'En tránsito',
-  CERRADO:  'Cerrado',
+  ARCHIVO:  'Archivo',
 };
+
+/** Estado del movimiento que representa el paso Admisión → Archivo. */
+export const MOV_ARCHIVADO = 'Archivado';
 
 /**
  * Refresco automático.
@@ -105,10 +116,18 @@ export function puedeRecibir(usuario, exp) {
   return esSuper(usuario) || deptoDe(usuario) === exp.destino_pendiente;
 }
 
-export function puedeCerrar(usuario, exp) {
+/* El archivo es exclusivo de Admisión: solo ella guarda expedientes ahí
+   (y solo si ya regresaron a Admisión) y solo ella los saca. */
+
+export function puedeArchivar(usuario, exp) {
   if (!exp || exp.estado !== ESTADO.DEPTO) return false;
   if (exp.departamento_actual !== 'Admisión') return false;
   return esSuper(usuario) || deptoDe(usuario) === 'Admisión';
+}
+
+export function puedeSacarDeArchivo(usuario, exp) {
+  if (!exp || exp.estado !== ESTADO.ARCHIVO) return false;
+  return puedeAperturar(usuario);
 }
 
 export function puedeDeshacer(usuario) {

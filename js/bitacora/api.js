@@ -42,8 +42,9 @@ async function call(params) {
   return data;
 }
 
-export async function getExpedientes({ incluirCerrados = false } = {}) {
-  const data = await call({ action: 'bitGetAll', cerrados: incluirCerrados ? '1' : '0' });
+export async function getExpedientes({ incluirArchivo = false } = {}) {
+  // El parámetro del backend conserva su nombre viejo por compatibilidad.
+  const data = await call({ action: 'bitGetAll', cerrados: incluirArchivo ? '1' : '0' });
   return { records: data.records || [], servidor: data.servidor };
 }
 
@@ -52,7 +53,7 @@ export async function buscarExpedientes(type, query) {
   return { records: data.records || [], servidor: data.servidor };
 }
 
-/** Búsqueda exacta, incluidos los cerrados. Devuelve { encontrado, expediente }. */
+/** Búsqueda exacta, incluidos los archivados. Devuelve { encontrado, expediente }. */
 export async function consultar(expediente) {
   const data = await call({ action: 'bitConsultar', expediente });
   return { encontrado: Boolean(data.encontrado), expediente: data.expediente || null };
@@ -75,8 +76,8 @@ export function recibir({ expediente, usuario, observaciones }) {
   return call({ action: 'bitRecibir', expediente, usuario, observaciones });
 }
 
-export function cerrar({ expediente, usuario, observaciones }) {
-  return call({ action: 'bitCerrar', expediente, usuario, observaciones });
+export function archivar({ expediente, usuario, observaciones }) {
+  return call({ action: 'bitArchivar', expediente, usuario, observaciones });
 }
 
 export function deshacer({ expediente, usuario }) {
@@ -102,9 +103,9 @@ export function recibirLote({ expedientes, usuario, observaciones }) {
   });
 }
 
-export function cerrarLote({ expedientes, usuario, observaciones }) {
+export function archivarLote({ expedientes, usuario, observaciones }) {
   return call({
-    action: 'bitCerrarLote',
+    action: 'bitArchivarLote',
     expedientes: expedientes.join(','), usuario, observaciones,
   });
 }

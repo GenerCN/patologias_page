@@ -1,4 +1,4 @@
-import { ESTADO, ALERTA } from './config.js';
+import { ESTADO, ALERTA, ARCHIVO, MOV_ARCHIVADO } from './config.js';
 import { escHtml } from '../utils.js';
 
 const COLSPAN = 8;   // 7 de datos + la casilla de selección
@@ -46,14 +46,15 @@ export function minutosDesde(iso, ahora) {
 /** Minutos que el expediente lleva sin moverse y si eso ya es alarma. */
 export function estadoDeAlerta(exp, ahora) {
   const min = minutosDesde(exp.ultima_act, ahora);
-  if (exp.estado === ESTADO.CERRADO || min === null) return { min, alerta: false };
+  // En el archivo puede pasar años: estar quieto ahí es lo esperado.
+  if (exp.estado === ESTADO.ARCHIVO || min === null) return { min, alerta: false };
   const umbral = exp.estado === ESTADO.TRANSITO ? ALERTA.TRANSITO : ALERTA.ESTANCIA;
   return { min, alerta: min >= umbral };
 }
 
 function badgeEstado(exp) {
-  if (exp.estado === ESTADO.CERRADO) {
-    return '<span class="bit-badge bit-badge-cerrado">Cerrado</span>';
+  if (exp.estado === ESTADO.ARCHIVO) {
+    return '<span class="bit-badge bit-badge-archivo">En archivo</span>';
   }
   if (exp.estado === ESTADO.TRANSITO) {
     return '<span class="bit-badge bit-badge-transito">En tránsito</span>';
@@ -68,6 +69,9 @@ function celdaUbicacion(exp) {
       <span class="bit-flecha">→</span>
       <span class="bit-depto bit-depto-destino">${escHtml(exp.destino_pendiente || '—')}</span>
     </span>`;
+  }
+  if (exp.estado === ESTADO.ARCHIVO) {
+    return `<span class="bit-depto bit-depto-archivo">${escHtml(ARCHIVO)}</span>`;
   }
   return `<span class="bit-depto">${escHtml(exp.departamento_actual || '—')}</span>`;
 }
@@ -147,15 +151,54 @@ export function renderTabla(expedientes, ahora, onRowClick, seleccion = null, on
 
 /* ── Línea de tiempo del expediente ───────────────────────────────────── */
 
+/** El paso Admisión → Archivo: sin traslado ni acuse, solo cuánto lleva guardado. */
+function pasoArchivo(mov, ahora, esUltimo) {
+  const cancelado = mov.estado === 'Cancelado';
+  let tiempo = mov.minutos_estancia;
+  let enCurso = false;
+  if (!cancelado && tiempo === null && esUltimo) {
+    tiempo = minutosDesde(mov.fecha_recepcion, ahora);
+    enCurso = true;
+  }
+
+  return `
+    <li class="bit-paso bit-paso-archivo${cancelado ? ' bit-paso-cancelado' : ''}">
+      <div class="bit-paso-punto"></div>
+      <div class="bit-paso-cuerpo">
+        <div class="bit-paso-titulo">
+          Guardado en el archivo
+          ${cancelado ? '<span class="bit-badge bit-badge-cancelado">Cancelado</span>' : ''}
+        </div>
+        <div class="bit-paso-linea">
+          <span class="bit-paso-etiqueta">Archivó</span>
+          ${escHtml(mov.usuario_entrega || '—')} · ${fmtFechaHora(mov.fecha_entrega)}
+        </div>
+        ${cancelado ? '' : `
+        <div class="bit-paso-tiempos">
+          <span class="bit-tiempo">
+            <strong>En archivo:</strong> ${fmtDuracion(tiempo)}${enCurso ? ' (sigue ahí)' : ''}
+          </span>
+        </div>`}
+        ${mov.observaciones ? `<div class="bit-paso-obs">${escHtml(mov.observaciones)}</div>` : ''}
+      </div>
+    </li>`;
+}
+
 function pasoTimeline(mov, exp, ahora, esUltimo) {
+  if (mov.estado === MOV_ARCHIVADO || (mov.estado === 'Cancelado' && mov.destino === ARCHIVO)) {
+    return pasoArchivo(mov, ahora, esUltimo);
+  }
+
   const cancelado = mov.estado === 'Cancelado';
   const recibido  = Boolean(mov.fecha_recepcion);
 
-  // La estancia guardada solo existe cuando el expediente ya salió de ahí.
-  // Si sigue en ese departamento se calcula contra el reloj actual.
+  /* La estancia guardada solo existe cuando el expediente ya salió de ahí.
+     Si el último paso sigue abierto se calcula contra el reloj actual. Con
+     el archivo como paso propio, el último movimiento vivo siempre es una
+     estancia en curso: en un departamento o en el archivo. */
   let estancia = mov.minutos_estancia;
   let estanciaEnCurso = false;
-  if (!cancelado && recibido && estancia === null && esUltimo && exp.estado !== ESTADO.CERRADO) {
+  if (!cancelado && recibido && estancia === null && esUltimo) {
     estancia = minutosDesde(mov.fecha_recepcion, ahora);
     estanciaEnCurso = true;
   }
@@ -216,23 +259,28 @@ function pasoTimeline(mov, exp, ahora, esUltimo) {
     </li>`;
 }
 
-/** Suma total por departamento, para el resumen del panel. */
+/**
+ * Suma total por departamento, para el resumen del panel. El tiempo en
+ * archivo se devuelve aparte: no es un departamento y, al medirse en meses,
+ * aplastaría las barras de los departamentos hasta volverlas ilegibles.
+ */
 function resumenPorDepto(movimientos, exp, ahora) {
   const acum = new Map();
+  let enArchivo = 0;
   const vivos = movimientos.filter(m => m.estado !== 'Cancelado');
 
   vivos.forEach((mov, i) => {
     if (!mov.fecha_recepcion) return;
     let min = mov.minutos_estancia;
     if (min === null) {
-      const esUltimo = i === vivos.length - 1;
-      if (!esUltimo || exp.estado === ESTADO.CERRADO) return;
+      if (i !== vivos.length - 1) return;
       min = minutosDesde(mov.fecha_recepcion, ahora);
     }
+    if (mov.destino === ARCHIVO) { enArchivo += Number(min || 0); return; }
     acum.set(mov.destino, (acum.get(mov.destino) || 0) + Number(min || 0));
   });
 
-  return [...acum.entries()].sort((a, b) => b[1] - a[1]);
+  return { deptos: [...acum.entries()].sort((a, b) => b[1] - a[1]), enArchivo };
 }
 
 export function renderTimeline(exp, movimientos, ahora) {
@@ -247,14 +295,19 @@ export function renderTimeline(exp, movimientos, ahora) {
     pasoTimeline(mov, exp, ahora, ultimoVivo !== null && mov.id === ultimoVivo.id)
   ).join('');
 
-  const resumen = resumenPorDepto(movimientos, exp, ahora);
+  const { deptos: resumen, enArchivo } = resumenPorDepto(movimientos, exp, ahora);
   const totalMin = resumen.reduce((s, [, m]) => s + m, 0);
 
-  const filaCierre = exp.estado === ESTADO.CERRADO ? `
-    <li class="bit-paso bit-paso-cierre">
+  /* Un expediente archivado por la versión anterior, si no se corrió la
+     migración, no tiene paso de archivo en su historial. Se muestra la
+     fecha de archivo para que el recorrido no parezca quedar a medias. */
+  const sinPasoArchivo = exp.estado === ESTADO.ARCHIVO &&
+    (!ultimoVivo || ultimoVivo.estado !== MOV_ARCHIVADO);
+  const filaArchivoLegado = sinPasoArchivo ? `
+    <li class="bit-paso bit-paso-archivo">
       <div class="bit-paso-punto"></div>
       <div class="bit-paso-cuerpo">
-        <div class="bit-paso-titulo">Expediente cerrado en Admisión</div>
+        <div class="bit-paso-titulo">Guardado en el archivo</div>
         <div class="bit-paso-linea">${fmtFechaHora(exp.fecha_cierre)}</div>
       </div>
     </li>` : '';
@@ -262,6 +315,10 @@ export function renderTimeline(exp, movimientos, ahora) {
   return `
     <div class="section-label">Tiempo acumulado por departamento</div>
     <div class="bit-resumen">
+      ${enArchivo ? `
+        <div class="bit-resumen-archivo">
+          Tiempo total en archivo: <strong>${fmtDuracion(enArchivo)}</strong>
+        </div>` : ''}
       ${resumen.length
         ? resumen.map(([depto, min]) => `
             <div class="bit-resumen-fila">
@@ -275,5 +332,5 @@ export function renderTimeline(exp, movimientos, ahora) {
     </div>
 
     <div class="section-label">Recorrido del expediente</div>
-    <ul class="bit-timeline">${pasos}${filaCierre}</ul>`;
+    <ul class="bit-timeline">${pasos}${filaArchivoLegado}</ul>`;
 }

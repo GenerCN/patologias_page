@@ -123,7 +123,7 @@ El repositorio está organizado de la siguiente manera:
     *   [panel.js](file:///c:/Users/Sistemas/Documents/AppScript/patologias_page/js/panel.js): Controla el comportamiento del panel lateral derecho (abrir, cerrar, recopilar valores modificados y renderizar los campos según la matriz de permisos).
     *   [main.js](file:///c:/Users/Sistemas/Documents/AppScript/patologias_page/js/main.js): Orquestador general del módulo de patologías. Vincula los eventos del DOM (búsquedas, filtros rápidos, guardado y creación de registros) con el comportamiento de los demás módulos JavaScript.
     *   **`js/bitacora/`**: Módulo de bitácora de expedientes. Reutiliza `auth.js`, `utils.js` y la paginación de `table.js` del módulo de patologías.
-        *   [config.js](js/bitacora/config.js): Catálogo de departamentos, flujo sugerido, mapa usuario→departamento y funciones de permiso (`puedeEntregar`, `puedeRecibir`, `puedeCerrar`…).
+        *   [config.js](js/bitacora/config.js): Catálogo de departamentos, ubicación del archivo, flujo sugerido, mapa usuario→departamento y funciones de permiso (`puedeEntregar`, `puedeRecibir`, `puedeArchivar`, `puedeSacarDeArchivo`…).
         *   [api.js](js/bitacora/api.js): Llamadas a las acciones `bit*` de Apps Script, con la misma lógica de reintentos.
         *   [render.js](js/bitacora/render.js): Formato de fechas y duraciones, tabla de expedientes y línea de tiempo del recorrido.
         *   [main.js](js/bitacora/main.js): Orquestador del módulo: carga, filtros, panel lateral y ejecución de movimientos.
@@ -189,14 +189,14 @@ Una fila por expediente. Refleja **dónde está ahora**; el historial vive en la
 | **A** | `ID` | UUID interno. |
 | **B** | `Expediente` | Número de expediente (clave única, se guarda en mayúsculas). |
 | **C** | `Nombre del Paciente` | Nombre completo. |
-| **D** | `Departamento Actual` | Dónde está el expediente. Si va en tránsito, el departamento que lo entregó. |
-| **E** | `Estado` | `En departamento` · `En tránsito` · `Cerrado`. |
+| **D** | `Departamento Actual` | Dónde está el expediente: un departamento, o `Archivo`. Si va en tránsito, el lugar del que salió. |
+| **E** | `Estado` | `En departamento` · `En tránsito` · `Archivo`. |
 | **F** | `Destino Pendiente` | Solo cuando está en tránsito: a quién va dirigido. |
-| **G** | `Fecha Apertura` | ISO 8601. Momento de la primera salida de Admisión. |
+| **G** | `Fecha Apertura` | ISO 8601. Inicio del ciclo actual (primera salida, o salida del archivo). |
 | **H** | `Última Actualización` | ISO 8601. Base del cálculo de "tiempo sin moverse". |
-| **I** | `Fecha Cierre` | ISO 8601. Se llena al cerrar el ciclo. |
-| **J** | `Total Movimientos` | Contador de entregas del ciclo actual. |
-| **K** | `Ciclo` | Se incrementa cada vez que un expediente cerrado vuelve a salir. |
+| **I** | `Fecha Cierre` | ISO 8601. **Fecha en que se guardó en el archivo.** Vacía mientras el ciclo está activo. (Conserva su nombre original para no romper hojas existentes.) |
+| **J** | `Total Movimientos` | Contador de pasos del ciclo actual, incluido el paso al archivo. |
+| **K** | `Ciclo` | Se incrementa cada vez que un expediente sale del archivo. |
 | **L** | `Observaciones` | Texto libre. |
 
 ### Hoja 4: `Bitacora` (Historial de movimientos)
@@ -206,15 +206,15 @@ Una fila por **entrega**. Es la tabla que responde "¿por dónde pasó y cuánto
 | :--- | :--- | :--- |
 | **A** | `ID` | UUID del movimiento. |
 | **B** | `Expediente` | Número de expediente. |
-| **C** | `Origen` | Departamento que entrega. |
-| **D** | `Destino` | Departamento que recibe. |
+| **C** | `Origen` | Departamento que entrega, o `Archivo` cuando el expediente sale de ahí. |
+| **D** | `Destino` | Departamento que recibe, o `Archivo` en el paso de archivado. |
 | **E** | `Fecha Entrega` | ISO 8601. |
 | **F** | `Usuario Entrega` | Quién registró la salida. |
 | **G** | `Fecha Recepción` | ISO 8601. Vacío mientras nadie acuse recibo. |
 | **H** | `Usuario Recepción` | Quién confirmó la llegada. |
 | **I** | `Minutos Traslado` | `Fecha Recepción − Fecha Entrega`. Tiempo que el expediente anduvo "en el aire". |
-| **J** | `Minutos Estancia Destino` | Tiempo que el expediente permaneció en `Destino`. Se calcula cuando ese departamento lo entrega al siguiente (o al cerrarse el ciclo). |
-| **K** | `Estado Movimiento` | `En tránsito` · `Recibido` · `Cerrado` · `Cancelado`. |
+| **J** | `Minutos Estancia Destino` | Tiempo que el expediente permaneció en `Destino`. Se calcula cuando sale de ahí. En el paso de archivado, es el **tiempo que pasó en el archivo**. |
+| **K** | `Estado Movimiento` | `En tránsito` · `Recibido` · `Archivado` · `Cancelado`. |
 | **L** | `Ciclo` | Ciclo al que pertenece el movimiento. |
 | **M** | `Observaciones` | Texto libre de entrega y recepción. |
 
@@ -252,17 +252,27 @@ graph LR
 
 El flujo es una **sugerencia, no una restricción**: el panel preselecciona el siguiente paso habitual bajo el grupo *"Siguiente paso habitual"*, pero cualquier departamento puede aparecer como destino en *"Otros departamentos"*. La realidad del hospital no siempre sigue el camino ideal y forzarlo solo provocaría que se dejen de registrar movimientos.
 
-El ciclo termina cuando el expediente regresa a Admisión y Admisión lo **cierra**.
+El ciclo termina cuando el expediente regresa a Admisión y Admisión lo **guarda en el archivo**.
 
-### 6.2.1 Cuando el paciente regresa
+### 6.2.1 El archivo
 
-No se da de alta otra vez: el expediente ya existe y se reutiliza su registro. Hay dos caminos, ambos abren un **ciclo nuevo** conservando íntegro el historial anterior:
+El archivo **no es un departamento**: es una ubicación propia. Un expediente archivado no está en Admisión ni en ningún otro lado — está guardado. Las reglas:
 
-* **Desde el expediente**: buscarlo por número (la búsqueda sí muestra los cerrados, aunque no aparezcan en la lista de trabajo) y usar el botón **"Registrar nueva salida"** que aparece en el panel. Solo pide destino y observaciones.
-* **Desde "Nueva salida"**: al escribir un número que ya existe y salir del campo, el nombre se completa solo y un aviso indica qué ciclo se abrirá. Si el expediente todavía está activo en otro departamento, el aviso lo señala y el botón de guardar se bloquea.
+* **Solo Admisión mete** expedientes al archivo, y solo cuando ya regresaron físicamente a Admisión. No se puede archivar algo que sigue en otro departamento ni algo en tránsito.
+* **Solo Admisión saca** expedientes del archivo. Ningún otro departamento puede moverlos, ni siquiera "entregarlos": `Archivo` no aparece como destino en ninguna lista.
+* Archivar se registra como **un paso más del recorrido** (`Admisión → Archivo`), con acuse inmediato porque quien lo deposita es quien lo recibe. Así el tiempo que pasa guardado se mide igual que la estancia en cualquier departamento, y aparece en la línea de tiempo.
+* Estar quieto en el archivo es lo esperado: los archivados **nunca disparan la alerta** de detenidos, y no aparecen en la lista de trabajo salvo que se marque *"Incluir expedientes en archivo"* o se filtre la ubicación por `Archivo`.
+* Para Admisión, el filtro *"En mi departamento"* incluye el archivo (es su custodia) y también lo que acaba de sacar y va en camino a otro departamento, igual que cuando manda uno nuevo.
+
+### 6.2.2 Cuando el paciente regresa
+
+No se da de alta otra vez: el expediente ya existe y se **saca del archivo**. Al sacarlo se abre un **ciclo nuevo** conservando íntegro el historial anterior. Hay dos caminos:
+
+* **Desde el expediente**: buscarlo por número (la búsqueda sí muestra los archivados) y usar **"Sacar del archivo"** en el panel. Se elige entre **dejarlo en Admisión** (para consulta o trámite; queda recibido ahí de inmediato) o **entregarlo directamente** a un departamento.
+* **Desde "Nueva salida"** (uno o varios a la vez): al escribir un número que está en el archivo, el nombre se completa solo y se avisa que se sacará y qué ciclo se abrirá. Si el expediente sigue en circulación, el aviso lo señala y el guardado se bloquea.
 
 > [!IMPORTANT]
-> Al reabrir, el backend **conserva el nombre ya registrado e ignora el que venga en la petición**. Es deliberado: si Admisión reescribiera *"Maria Vasquez"* donde decía *"María Elena Vázquez Ruiz"*, el nombre bueno se perdería y las búsquedas por nombre dejarían de encontrar el expediente. Para corregir un nombre mal capturado se edita la celda en la hoja `Expedientes`.
+> Al sacarlo, el backend **conserva el nombre ya registrado e ignora el que venga en la petición**. Es deliberado: si Admisión reescribiera *"Maria Vasquez"* donde decía *"María Elena Vázquez Ruiz"*, el nombre bueno se perdería y las búsquedas por nombre dejarían de encontrar el expediente. Para corregir un nombre mal capturado se edita la celda en la hoja `Expedientes`.
 
 ### 6.3 Ciclo de vida y reglas de permiso
 
@@ -271,16 +281,18 @@ stateDiagram-v2
     [*] --> EnTransito: Admisión registra la primera salida
     EnTransito --> EnDepartamento: el destino acusa recibo
     EnDepartamento --> EnTransito: el departamento actual lo entrega
-    EnDepartamento --> Cerrado: Admisión cierra (solo si está en Admisión)
-    Cerrado --> EnTransito: Admisión registra una nueva salida (ciclo + 1)
+    EnDepartamento --> Archivo: Admisión lo guarda (solo si está en Admisión)
+    Archivo --> EnTransito: Admisión lo saca y lo entrega a un departamento (ciclo + 1)
+    Archivo --> EnDepartamento: Admisión lo saca y lo deja en Admisión (ciclo + 1)
 ```
 
 | Acción | Quién puede |
 | :--- | :--- |
-| Registrar la primera salida / reabrir | `admision`, `admin` |
+| Registrar la primera salida | `admision`, `admin` |
 | Registrar una entrega | Únicamente el departamento donde está el expediente, o `admin` |
 | Confirmar recepción | Únicamente el departamento destino, o `admin` |
-| Cerrar el expediente | `admision`, `admin` — y solo si el expediente ya regresó a Admisión |
+| Guardar en el archivo | `admision`, `admin` — y solo si el expediente ya regresó a Admisión |
+| Sacar del archivo | `admision`, `admin` |
 | Deshacer el último paso | `admin` |
 | Abrir el módulo y consultar | Solo usuarios con departamento asignado en `USUARIO_DEPTO`, más `admin` |
 
@@ -303,7 +315,7 @@ Todas las marcas de tiempo se guardan en **ISO 8601 UTC** y se convierten a hora
 
 Un departamento rara vez mueve un expediente a la vez: Preoperatorio manda cinco a Quirófanos en la misma vuelta, y Admisión da de salida ocho en la mañana. Registrarlos de uno en uno es justo lo que hace que se deje de registrar.
 
-**Mover varios que ya existen.** Cada renglón de la tabla tiene una casilla, y el encabezado marca toda la página visible. Al seleccionar algo aparece una barra con `Entregar`, `Confirmar recepción` y `Cerrar`.
+**Mover varios que ya existen.** Cada renglón de la tabla tiene una casilla, y el encabezado marca toda la página visible. Al seleccionar algo aparece una barra con `Entregar`, `Confirmar recepción` y `Archivar`.
 
 Cada botón muestra **sobre cuántos de los seleccionados aplica de verdad** — `Confirmar recepción (3)` — y se deshabilita en cero. Mezclar expedientes en distinto estado es normal, y esconder ese número haría creer al usuario que movió más de lo que movió. Si todo lo entregable está en el mismo departamento, el selector de destino ofrece primero el siguiente paso habitual.
 
@@ -312,8 +324,8 @@ Cada botón muestra **sobre cuántos de los seleccionados aplica de verdad** —
 | Renglón | Qué pasa |
 | :--- | :--- |
 | Expediente nuevo | Se pide el nombre normalmente. |
-| Existe y está cerrado | Completa el nombre solo y avisa *"Ya existe · se abrirá el ciclo 2"*. |
-| Existe y sigue activo | Se marca en rojo con dónde está, y bloquea el guardado hasta quitarlo. |
+| Está en el archivo | Completa el nombre solo y avisa *"En archivo · se saca y abre el ciclo 2"*. |
+| Sigue en circulación | Se marca en rojo con dónde está, y bloquea el guardado hasta quitarlo. |
 
 `Enter` en el campo de nombre del último renglón agrega otro, para capturar sin soltar el teclado.
 
@@ -376,8 +388,19 @@ Solo el superusuario, y de un nivel. Revierte el último paso respetando su gran
 
 | Último paso registrado | Qué hace deshacer |
 | :--- | :--- |
-| Cierre | Reabre el expediente en Admisión |
+| Salida del archivo | Lo devuelve al archivo: recupera su fecha de archivo, el ciclo anterior y su contador. Aplica tanto si iba en camino como si ya se había dejado en Admisión. |
+| Guardado en el archivo | Lo regresa a Admisión y reabre su estancia ahí |
 | Recepción | Vuelve a dejarlo `En tránsito` hacia el mismo destino |
 | Entrega | Cancela la entrega y regresa el expediente a su origen |
 
-Las entregas canceladas **no se borran**: quedan en la hoja con `Estado Movimiento = Cancelado` y se ven tachadas en la línea de tiempo. La bitácora es un documento de control, así que conviene que las correcciones sean visibles.
+Los pasos cancelados **no se borran**: quedan en la hoja con `Estado Movimiento = Cancelado` y se ven tachados en la línea de tiempo. La bitácora es un documento de control, así que conviene que las correcciones sean visibles.
+
+### 6.9 Migración desde "Cerrado"
+
+La versión anterior terminaba el ciclo con el estado `Cerrado` y dejaba el expediente figurando en Admisión. Al actualizar se corre `bitInstalar` desde el editor de Apps Script, que ejecuta `bitMigrarArchivo`. Por cada expediente cerrado:
+
+* pasa a `Estado = Archivo` y `Departamento Actual = Archivo`;
+* su último movimiento deja de marcarse `Cerrado` y queda `Recibido`, que es lo que realmente fue (la llegada a Admisión);
+* se agrega el paso `Admisión → Archivo` con la **fecha de cierre original**, así el tiempo en archivo se mide desde ese día.
+
+Es idempotente: correrla otra vez no encuentra nada que migrar. Aun sin migrar, el backend traduce `Cerrado` al leer, así que las filas viejas siguen funcionando; la migración solo deja la hoja limpia y agrega el paso de archivo para medir su tiempo. El backend también sigue aceptando las acciones viejas `bitCerrar`/`bitCerrarLote` para que un navegador con la página anterior en caché no falle durante el despliegue.

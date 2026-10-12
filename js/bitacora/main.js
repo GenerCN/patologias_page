@@ -2,9 +2,9 @@ import { requireAuth, logout } from '../auth.js';
 import { setStatus, showToast, escHtml } from '../utils.js';
 import { renderPagination } from '../table.js';
 import {
-  DEPARTAMENTOS, ESTADO, ALERTA, AUTO_REFRESCO,
+  DEPARTAMENTOS, ESTADO, ALERTA, AUTO_REFRESCO, ARCHIVO,
   deptoDe, tieneAccesoBitacora,
-  puedeAperturar, puedeEntregar, puedeRecibir, puedeCerrar, puedeDeshacer,
+  puedeAperturar, puedeEntregar, puedeRecibir, puedeArchivar, puedeSacarDeArchivo, puedeDeshacer,
   destinosDesde,
 } from './config.js';
 import * as api from './api.js';
@@ -41,7 +41,7 @@ let expedientes    = [];
 let relojServidor  = null;   // hora del servidor al momento de la última carga
 let filtroActivo   = null;
 let filtroDepto    = '';
-let incluirCerrados = false;
+let incluirArchivo = false;
 let paginaActual   = 1;
 let expActivo      = null;   // expediente abierto en el panel
 let filaActiva     = null;
@@ -65,9 +65,16 @@ const FILTROS = {
     const { alerta } = estadoDeAlerta(exp, relojServidor);
     return alerta;
   },
+  /* Admisión es la custodia del archivo (solo ella mete y saca), así que
+     para Admisión la ubicación "Archivo" cuenta como suya. Eso cubre dos
+     casos: lo guardado, y lo que acaba de sacar y va en camino a otro
+     departamento esperando acuse — igual que cuando manda uno nuevo.
+     Los archivados solo llegan a la lista si se marca "Incluir expedientes
+     en archivo", así que la lista de trabajo no se llena de años de archivo. */
   'mios': exp =>
     exp.departamento_actual === miDepto ||
-    (exp.estado === ESTADO.TRANSITO && exp.destino_pendiente === miDepto),
+    (exp.estado === ESTADO.TRANSITO && exp.destino_pendiente === miDepto) ||
+    (miDepto === 'Admisión' && exp.departamento_actual === ARCHIVO),
 };
 
 /* ── Render de la vista ───────────────────────────────────────────────── */
@@ -204,7 +211,7 @@ function pintarBarraLote(pagina) {
 
   const entregables = sel.filter(e => puedeEntregar(usuario, e));
   const recibibles  = sel.filter(e => puedeRecibir(usuario, e));
-  const cerrables   = sel.filter(e => puedeCerrar(usuario, e));
+  const archivables = sel.filter(e => puedeArchivar(usuario, e));
 
   const marcar = (id, lista, etiqueta) => {
     const btn = document.getElementById(id);
@@ -213,7 +220,7 @@ function pintarBarraLote(pagina) {
   };
   marcar('bit-lote-entregar', entregables, 'Entregar');
   marcar('bit-lote-recibir',  recibibles,  'Confirmar recepción');
-  marcar('bit-lote-cerrar',   cerrables,   'Cerrar');
+  marcar('bit-lote-archivar', archivables, 'Archivar');
 
   /* Si todo lo entregable está en el mismo departamento se ofrece el
      siguiente paso habitual primero; si está repartido, la lista completa. */
@@ -313,7 +320,7 @@ async function ejecutarLote(boton, claves, fn) {
 function traerDatos() {
   return vistaActual.tipo === 'busqueda'
     ? api.buscarExpedientes(vistaActual.type, vistaActual.query)
-    : api.getExpedientes({ incluirCerrados });
+    : api.getExpedientes({ incluirArchivo });
 }
 
 /**
@@ -492,45 +499,51 @@ function bloqueAcciones(exp) {
       </div>`);
   }
 
-  // El paciente volvió: Admisión lo saca de nuevo sin recapturar nada.
-  if (puedeAperturar(usuario) && exp.estado === ESTADO.CERRADO) {
+  /* Sacar del archivo. Se puede dejar en Admisión (consulta, trámite) o
+     mandarlo directo a un departamento. En ambos casos abre un ciclo nuevo
+     sin recapturar nada. */
+  if (puedeSacarDeArchivo(usuario, exp)) {
     acciones.push(`
-      <div class="bit-accion bit-accion-recibir">
+      <div class="bit-accion bit-accion-archivo">
         <p class="bit-accion-texto">
-          Expediente cerrado el ${fmtFechaHora(exp.fecha_cierre)}.
-          Si el paciente regresó, registra la salida aquí: se abrirá el
-          <strong>ciclo ${exp.ciclo + 1}</strong> conservando todo el historial anterior.
+          Guardado en el archivo desde el ${fmtFechaHora(exp.fecha_cierre)}.
+          Al sacarlo se abre el <strong>ciclo ${exp.ciclo + 1}</strong>
+          conservando todo el historial anterior.
         </p>
         <div class="field-group">
-          <label for="bit-re-destino">Entregar a</label>
-          <select id="bit-re-destino">${opcionesSalidaAdmision()}</select>
+          <label for="bit-re-destino">Sacar del archivo y…</label>
+          <select id="bit-re-destino">
+            <option value="Admisión">Dejarlo en Admisión</option>
+            <optgroup label="Entregarlo directamente a">${opcionesSalidaAdmision()}</optgroup>
+          </select>
         </div>
         <div class="field-group">
           <label for="bit-obs-reabrir">Observaciones (opcional)</label>
-          <input type="text" id="bit-obs-reabrir" placeholder="Ej. revisión post-operatoria">
+          <input type="text" id="bit-obs-reabrir" placeholder="Ej. paciente regresa a revisión post-operatoria">
         </div>
-        <button class="btn btn-new" id="bit-btn-reabrir">Registrar nueva salida</button>
+        <button class="btn btn-new" id="bit-btn-reabrir">Sacar del archivo</button>
       </div>`);
   }
 
-  if (puedeCerrar(usuario, exp)) {
+  if (puedeArchivar(usuario, exp)) {
     acciones.push(`
       <div class="bit-accion">
         <p class="bit-accion-texto">
-          El expediente ya regresó a Admisión. Ciérralo para dar por terminado el ciclo.
+          El expediente ya regresó a Admisión. Guárdalo en el archivo para terminar el ciclo;
+          deja de estar en cualquier departamento hasta que Admisión lo saque.
         </p>
         <div class="field-group">
-          <label for="bit-obs-cerrar">Observaciones de cierre (opcional)</label>
-          <input type="text" id="bit-obs-cerrar" placeholder="Ej. expediente completo, se archiva">
+          <label for="bit-obs-archivar">Observaciones (opcional)</label>
+          <input type="text" id="bit-obs-archivar" placeholder="Ej. expediente completo, anaquel 4">
         </div>
-        <button class="btn btn-outline" id="bit-btn-cerrar">Cerrar expediente</button>
+        <button class="btn btn-outline" id="bit-btn-archivar">Guardar en el archivo</button>
       </div>`);
   }
 
   if (!acciones.length) {
     let motivo;
-    if (exp.estado === ESTADO.CERRADO) {
-      motivo = 'Este expediente está cerrado. Admisión debe registrar una nueva salida si vuelve a circular.';
+    if (exp.estado === ESTADO.ARCHIVO) {
+      motivo = 'Este expediente está guardado en el archivo. Solo Admisión puede sacarlo.';
     } else if (exp.estado === ESTADO.TRANSITO) {
       motivo = `El expediente va en camino a <strong>${escHtml(exp.destino_pendiente)}</strong>. ` +
                'Ese departamento debe confirmar la recepción.';
@@ -585,13 +598,13 @@ function conectarAcciones(exp) {
       })));
   }
 
-  const btnCerrar = document.getElementById('bit-btn-cerrar');
-  if (btnCerrar) {
-    btnCerrar.addEventListener('click', () => ejecutar(btnCerrar, () =>
-      api.cerrar({
+  const btnArchivar = document.getElementById('bit-btn-archivar');
+  if (btnArchivar) {
+    btnArchivar.addEventListener('click', () => ejecutar(btnArchivar, () =>
+      api.archivar({
         expediente: exp.expediente,
         usuario,
-        observaciones: document.getElementById('bit-obs-cerrar').value.trim(),
+        observaciones: document.getElementById('bit-obs-archivar').value.trim(),
       })));
   }
 
@@ -600,7 +613,7 @@ function conectarAcciones(exp) {
     btnDeshacer.addEventListener('click', () => {
       const ok = confirm(
         `¿Deshacer el último paso del expediente ${exp.expediente}?\n\n` +
-        'Esto revierte el registro más reciente (recepción, entrega o cierre). ' +
+        'Esto revierte el registro más reciente (recepción, entrega, archivo o salida del archivo). ' +
         'La acción queda marcada en la hoja de cálculo.');
       if (!ok) return;
       ejecutar(btnDeshacer, () => api.deshacer({ expediente: exp.expediente, usuario }));
@@ -728,12 +741,12 @@ function vincularAutocompletado(inpExp, inpNombre, aviso, alCambiar) {
     inpNombre.readOnly = true;
     inpNombre.classList.add('field-readonly');
 
-    if (prev.estado === ESTADO.CERRADO) {
+    if (prev.estado === ESTADO.ARCHIVO) {
       if (aviso) {
         aviso.className = 'bit-aviso bit-aviso-ok';
         aviso.innerHTML =
-          `Este expediente ya está en la bitácora. Se abrirá el <strong>ciclo ${prev.ciclo + 1}</strong> ` +
-          `conservando sus ${prev.total_movimientos} movimiento(s) anteriores. ` +
+          `Este expediente está <strong>en el archivo</strong>. Al registrar la salida se saca ` +
+          `y se abre el <strong>ciclo ${prev.ciclo + 1}</strong>, conservando su historial. ` +
           `El nombre se toma del registro existente.`;
       }
       alCambiar('reapertura', prev);
@@ -741,9 +754,9 @@ function vincularAutocompletado(inpExp, inpNombre, aviso, alCambiar) {
       if (aviso) {
         aviso.className = 'bit-aviso bit-aviso-error';
         aviso.innerHTML =
-          `Este expediente sigue activo: <strong>${escHtml(prev.estado)}</strong> · ` +
+          `Este expediente sigue en circulación: <strong>${escHtml(prev.estado)}</strong> · ` +
           `${escHtml(prev.estado === ESTADO.TRANSITO ? prev.destino_pendiente : prev.departamento_actual)}. ` +
-          `No se puede volver a dar de salida hasta que Admisión lo cierre.`;
+          `No puede volver a salir hasta que regrese y Admisión lo archive.`;
       }
       alCambiar('activo', prev);
     }
@@ -931,11 +944,11 @@ function agregarRenglon() {
     fila.classList.remove('bit-renglon-ok', 'bit-renglon-mal');
     if (estado === 'reapertura') {
       fila.classList.add('bit-renglon-ok');
-      nota.textContent = `Ya existe · se abrirá el ciclo ${prev.ciclo + 1}`;
+      nota.textContent = `En archivo · se saca y abre el ciclo ${prev.ciclo + 1}`;
     } else if (estado === 'activo') {
       fila.classList.add('bit-renglon-mal');
-      nota.textContent = `Sigue activo en ${prev.estado === ESTADO.TRANSITO
-        ? prev.destino_pendiente : prev.departamento_actual} — no se puede sacar`;
+      nota.textContent = `Sigue en circulación (${prev.estado === ESTADO.TRANSITO
+        ? 'hacia ' + prev.destino_pendiente : prev.departamento_actual}) — no puede salir`;
     } else {
       nota.textContent = '';
     }
@@ -1059,11 +1072,18 @@ document.getElementById('search-input').addEventListener('keydown', e => {
 document.getElementById('filtro-depto').addEventListener('change', e => {
   filtroDepto = e.target.value;
   paginaActual = 1;
+  // Filtrar por "Archivo" sin traer los archivados mostraría una lista vacía.
+  if (filtroDepto === ARCHIVO && !incluirArchivo) {
+    incluirArchivo = true;
+    document.getElementById('chk-archivo').checked = true;
+    verTodos();
+    return;
+  }
   renderVista();
 });
 
-document.getElementById('chk-cerrados').addEventListener('change', e => {
-  incluirCerrados = e.target.checked;
+document.getElementById('chk-archivo').addEventListener('change', e => {
+  incluirArchivo = e.target.checked;
   verTodos();
 });
 
@@ -1107,11 +1127,11 @@ document.getElementById('bit-lote-recibir').addEventListener('click', e => {
     api.recibirLote({ expedientes: claves, usuario, observaciones: obsLote() }));
 });
 
-document.getElementById('bit-lote-cerrar').addEventListener('click', e => {
-  const claves = seleccionados().filter(x => puedeCerrar(usuario, x)).map(x => x.expediente);
-  if (!confirm(`¿Cerrar ${claves.length} expediente(s)? Se dará por terminado su ciclo.`)) return;
+document.getElementById('bit-lote-archivar').addEventListener('click', e => {
+  const claves = seleccionados().filter(x => puedeArchivar(usuario, x)).map(x => x.expediente);
+  if (!confirm(`¿Guardar ${claves.length} expediente(s) en el archivo? Terminará su ciclo.`)) return;
   ejecutarLote(e.currentTarget, claves, () =>
-    api.cerrarLote({ expedientes: claves, usuario, observaciones: obsLote() }));
+    api.archivarLote({ expedientes: claves, usuario, observaciones: obsLote() }));
 });
 
 document.querySelectorAll('.filter-chip').forEach(chip => {
@@ -1131,7 +1151,8 @@ document.addEventListener('keydown', e => {
 
 document.getElementById('filtro-depto').innerHTML =
   '<option value="">Todos los departamentos</option>' +
-  DEPARTAMENTOS.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+  DEPARTAMENTOS.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('') +
+  `<option value="${escHtml(ARCHIVO)}">${escHtml(ARCHIVO)}</option>`;
 
 document.getElementById('header-depto').textContent =
   miDepto ? `${usuario} · ${miDepto}` : usuario;

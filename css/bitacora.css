@@ -175,7 +175,7 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 }
 .bit-badge-activo    { background: var(--green-bg);  color: var(--green); }
 .bit-badge-transito  { background: var(--yellow-bg); color: var(--yellow); }
-.bit-badge-cerrado   { background: var(--gray-100);  color: var(--gray-500); }
+.bit-badge-archivo   { background: #EDE9FE;          color: #6D28D9; }
 .bit-badge-cancelado { background: var(--red-bg);    color: var(--red); margin-left: 6px; }
 
 .bit-ruta { display: inline-flex; align-items: center; gap: 6px; }
@@ -196,6 +196,18 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 16px;
+}
+/* El archivo usa violeta para no confundirse con ningún estado de
+   circulación (verde = en departamento, ámbar = en tránsito). */
+.bit-accion-archivo {
+  background: #F5F3FF;
+  border-color: #DDD6FE;
+}
+.bit-depto-archivo { color: #6D28D9; }
+.bit-resumen-archivo {
+  font-size: 12px; color: #5B21B6;
+  background: #F5F3FF; border-radius: 6px;
+  padding: 7px 10px; margin-bottom: 10px;
 }
 .bit-accion-recibir {
   background: var(--green-bg);
@@ -293,7 +305,8 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 .bit-paso-ok        .bit-paso-punto { border-color: var(--green); }
 .bit-paso-transito  .bit-paso-punto { border-color: var(--yellow); background: var(--yellow-bg); }
 .bit-paso-cancelado .bit-paso-punto { border-color: var(--red); }
-.bit-paso-cierre    .bit-paso-punto { border-color: var(--blue-700); background: var(--blue-700); }
+.bit-paso-archivo   .bit-paso-punto { border-color: #6D28D9; background: #EDE9FE; }
+.bit-paso-archivo   .bit-paso-titulo { color: #5B21B6; }
 
 .bit-paso-cancelado .bit-paso-cuerpo { opacity: .55; }
 .bit-paso-cancelado .bit-paso-titulo { text-decoration: line-through; }
