@@ -57,6 +57,11 @@ let ultimaSync    = null;    // Date.now() de la última carga exitosa
 /** Números de expediente marcados con casilla, para operar en lote. */
 const seleccion = new Set();
 
+/* Llegadas detectadas con la pestaña oculta. El aviso emergente dura unos
+   segundos y nadie lo vería, así que se guardan y se muestran al volver; el
+   título de la pestaña lleva una marca mientras haya alguna sin ver. */
+const llegadasSinVer = new Map();   // expediente -> registro
+
 const TITULO_BASE = document.title;
 
 const FILTROS = {
@@ -135,7 +140,9 @@ function pendientesDeRecibir() {
    plano, que es donde la bitácora va a estar la mayor parte del turno. */
 function actualizarTitulo() {
   const n = pendientesDeRecibir();
-  document.title = (n ? `(${n}) ` : '') + TITULO_BASE;
+  // "●" = te llegó algo desde la última vez que viste la pestaña.
+  const nuevo = llegadasSinVer.size ? '● ' : '';
+  document.title = nuevo + (n ? `(${n}) ` : '') + TITULO_BASE;
 }
 
 function renderVista() {
@@ -381,6 +388,13 @@ function firma(exp) {
   return [exp.estado, exp.departamento_actual, exp.destino_pendiente, exp.ultima_act].join('|');
 }
 
+function mensajeLlegadas(lista) {
+  const uno = lista[0];
+  return lista.length === 1
+    ? `${uno.departamento_actual} te envió el expediente ${uno.expediente} — ${uno.nombre_paciente}`
+    : `Te enviaron ${lista.length} expedientes. Confirma su recepción.`;
+}
+
 /** Avisa cuando alguien acaba de mandarle un expediente a mi departamento. */
 function avisarLlegadas(previos, nuevos) {
   if (!miDepto) return;
@@ -393,10 +407,23 @@ function avisarLlegadas(previos, nuevos) {
 
   if (!llegando.length) return;
 
-  const uno = llegando[0];
-  showToast(llegando.length === 1
-    ? `${uno.departamento_actual} te envió el expediente ${uno.expediente} — ${uno.nombre_paciente}`
-    : `Te enviaron ${llegando.length} expedientes. Confirma su recepción.`);
+  if (document.visibilityState !== 'visible') {
+    llegando.forEach(e => llegadasSinVer.set(e.expediente, e));
+    actualizarTitulo();
+    return;
+  }
+  showToast(mensajeLlegadas(llegando));
+}
+
+/** Al volver a la pestaña: muestra lo que llegó mientras no se veía. */
+function mostrarLlegadasSinVer() {
+  if (!llegadasSinVer.size) return;
+  // Solo las que siguen esperando acuse; alguien pudo recibirlas ya.
+  const vigentes = [...llegadasSinVer.values()].filter(e => expedientes.some(x =>
+    x.expediente === e.expediente && x.estado === ESTADO.TRANSITO && x.destino_pendiente === miDepto));
+  llegadasSinVer.clear();
+  actualizarTitulo();
+  if (vigentes.length) showToast(mensajeLlegadas(vigentes));
 }
 
 function pintarSync() {
@@ -413,28 +440,34 @@ function pintarSync() {
 }
 
 /* setTimeout encadenado en vez de setInterval: si Apps Script tarda (los
-   arranques en frío pasan de 5 s) las llamadas no se encaballan. */
+   arranques en frío pasan de 5 s) las llamadas no se encaballan. El ritmo se
+   decide en cada vuelta según si la pestaña está a la vista o no. */
 function programarRefresco() {
   clearTimeout(temporizador);
   if (!autoRefresco) return;
 
+  const oculta = document.visibilityState !== 'visible';
+  const segundos = oculta ? AUTO_REFRESCO.SEGUNDOS_OCULTA : AUTO_REFRESCO.SEGUNDOS;
+
   temporizador = setTimeout(async () => {
-    // Pestaña oculta: no se gasta cuota. Guardando: no se pisa la escritura.
-    if (document.visibilityState === 'visible' && !guardando) {
-      await cargar({ silencioso: true });
-    }
+    // Guardando: no se pisa la escritura; se intenta en la siguiente vuelta.
+    if (!guardando) await cargar({ silencioso: true });
     programarRefresco();
-  }, AUTO_REFRESCO.SEGUNDOS * 1000);
+  }, segundos * 1000);
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !autoRefresco || guardando) return;
+  if (document.visibilityState !== 'visible') return;
+  mostrarLlegadasSinVer();
+  if (!autoRefresco || guardando) return;
 
   /* Alternar pestañas dispara este evento en ráfaga; sin este freno cada
      clic en la barra de tareas sería una llamada más a Apps Script. Solo se
-     consulta si los datos ya tienen media vuelta de antigüedad. */
+     consulta si los datos ya tienen media vuelta de antigüedad. Aunque no se
+     consulte, se reprograma: el temporizador pendiente pudo quedar al ritmo
+     lento de segundo plano y hay que volver al de pestaña activa. */
   const antiguedad = ultimaSync ? Date.now() - ultimaSync : Infinity;
-  if (antiguedad < AUTO_REFRESCO.SEGUNDOS * 500) return;
+  if (antiguedad < AUTO_REFRESCO.SEGUNDOS * 500) { programarRefresco(); return; }
 
   // Al volver a la pestaña, ponerse al día sin esperar el siguiente ciclo.
   cargar({ silencioso: true });
@@ -1176,6 +1209,10 @@ document.getElementById('umbral-detenidos').textContent =
 
 document.getElementById('chk-auto').checked = autoRefresco;
 document.getElementById('intervalo-refresco').textContent = `${AUTO_REFRESCO.SEGUNDOS} s`;
+document.getElementById('lbl-auto').title =
+  `Consulta el servidor cada ${AUTO_REFRESCO.SEGUNDOS} s con la pestaña a la vista, ` +
+  `y cada ${AUTO_REFRESCO.SEGUNDOS_OCULTA / 60} min mientras trabajas en otra. ` +
+  'Avisa cuando te envían un expediente.';
 
 /* El "hace X" avanza solo, aparte del ciclo de red, para que el indicador
    no se quede congelado entre consulta y consulta. */

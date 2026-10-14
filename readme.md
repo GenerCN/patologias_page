@@ -347,12 +347,13 @@ Se configura en `AUTO_REFRESCO` de `js/bitacora/config.js`:
 
 | Ajuste | Valor | Por qué |
 | :--- | :--- | :--- |
-| `SEGUNDOS` | `45` | Un expediente cambia de departamento cada varios minutos, no cada segundo. Bajarlo de 20 s no aporta y multiplica las llamadas. |
+| `SEGUNDOS` | `45` | Ritmo con la pestaña a la vista. Un expediente cambia de departamento cada varios minutos, no cada segundo. Bajarlo de 20 s no aporta y multiplica las llamadas. |
+| `SEGUNDOS_OCULTA` | `120` | Ritmo con la pestaña en segundo plano (otra pestaña del navegador, o navegador minimizado). Más lento para cuidar la cuota, pero suficiente para que el título de la pestaña avise de llegadas. |
 | `ACTIVO_POR_DEFECTO` | `true` | Se puede pausar desde la casilla *"Actualizar cada 45 s"* de la barra de filtros. |
 
 Reglas que evitan que el refresco estorbe o desperdicie llamadas:
 
-* **Pausa con la pestaña oculta.** `visibilitychange` detiene las consultas cuando nadie está viendo, y al volver se pone al día de inmediato. Sin esto, una pantalla olvidada toda la noche seguiría consultando.
+* **Más lento en segundo plano, no detenido.** El personal trabaja en otras pestañas la mayor parte del turno; si el refresco se detuviera ahí, nadie se enteraría de una llegada hasta volver a la bitácora. Al volver a la pestaña se pone al día de inmediato y regresa al ritmo de 45 s.
 * **Freno anti-ráfaga.** Alternar pestañas dispara `visibilitychange` repetidamente; solo se consulta si los datos ya tienen media vuelta de antigüedad.
 * **`setTimeout` encadenado, no `setInterval`.** Si Apps Script tarda (los arranques en frío pasan de 5 s) las llamadas no se encaballan.
 * **No pisa una escritura en curso.** La bandera `guardando` bloquea el refresco mientras se registra un movimiento.
@@ -367,6 +368,11 @@ En cada refresco silencioso se comparan las firmas (`estado | departamento actua
 > *Recuperación te envió el expediente 10428 — Guadalupe Hernández Soto*
 
 Además, el número de expedientes esperando mi acuse de recibo se escribe en el **título de la pestaña** — `(2) Centro Médico San Lucas — Bitácora…` — para que se vea aunque la bitácora esté en segundo plano, que es donde va a estar la mayor parte del turno.
+
+Si la llegada se detecta con la pestaña oculta, el aviso emergente no se muestra en ese momento (desaparecería sin que nadie lo vea). En su lugar el título gana una marca — `● (3) Centro Médico…` — y el aviso se muestra al volver a la pestaña, solo para los expedientes que sigan esperando acuse.
+
+> [!NOTE]
+> Edge ("pestañas en suspensión") y Chrome ("ahorro de memoria") pueden dormir una pestaña que lleva mucho tiempo sin usarse; dormida, deja de consultar. Si pasa, conviene agregar el sitio a la lista de excepciones del navegador (*Configuración → Sistema y rendimiento* en Edge, *Rendimiento* en Chrome).
 
 > [!NOTE]
 > Cada consulta lee la hoja `Expedientes` completa. Con los volúmenes de una clínica esto es irrelevante durante años, pero si algún día la hoja llega a decenas de miles de filas, el refresco se irá haciendo lento. La palanca es subir `SEGUNDOS`.

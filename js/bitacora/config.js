@@ -61,10 +61,14 @@ export const MOV_ARCHIVADO = 'Archivado';
  * 45 s es el punto medio entre enterarse rápido y no castigar la cuota del
  * script: un expediente cambia de departamento cada varios minutos, no cada
  * segundo. Bajarlo de 20 s no aporta nada y multiplica las llamadas.
- * El refresco se pausa solo cuando la pestaña no está visible.
+ *
+ * Con la pestaña oculta se sigue consultando, pero más despacio: así el
+ * contador del título y el aviso de llegadas funcionan mientras el usuario
+ * trabaja en otra pestaña, sin gastar cuota al ritmo de una pestaña activa.
  */
 export const AUTO_REFRESCO = {
-  SEGUNDOS: 45,
+  SEGUNDOS: 45,           // pestaña a la vista
+  SEGUNDOS_OCULTA: 120,   // pestaña en segundo plano
   ACTIVO_POR_DEFECTO: true,
 };
 
