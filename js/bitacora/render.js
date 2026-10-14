@@ -1,4 +1,4 @@
-import { ESTADO, ALERTA, ARCHIVO, MOV_ARCHIVADO } from './config.js';
+import { ESTADO, ALERTA, ARCHIVO, MOV_ARCHIVADO, MOV_TRANSF_CANCELADA } from './config.js';
 import { escHtml } from '../utils.js';
 
 const COLSPAN = 8;   // 7 de datos + la casilla de selección
@@ -184,9 +184,58 @@ function pasoArchivo(mov, ahora, esUltimo) {
     </li>`;
 }
 
+/**
+ * Envío que Admisión anuló antes del acuse. Sí ocurrió, así que no se tacha:
+ * muestra el motivo, cuánto alcanzó a estar en tránsito y cuánto lleva o
+ * llevó de vuelta en Admisión.
+ */
+function pasoTransfCancelada(mov, ahora, esUltimo) {
+  let estancia = mov.minutos_estancia;
+  let enCurso = false;
+  if (estancia === null && esUltimo) {
+    estancia = minutosDesde(mov.fecha_recepcion, ahora);
+    enCurso = true;
+  }
+
+  return `
+    <li class="bit-paso bit-paso-transf-cancelada">
+      <div class="bit-paso-punto"></div>
+      <div class="bit-paso-cuerpo">
+        <div class="bit-paso-titulo">
+          ${escHtml(mov.origen)} <span class="bit-flecha">→</span> ${escHtml(mov.destino)}
+          <span class="bit-badge bit-badge-cancelado">Transferencia cancelada</span>
+        </div>
+        <div class="bit-paso-motivo">${escHtml(mov.motivo_cancelacion || 'Sin motivo registrado')}</div>
+
+        <div class="bit-paso-linea">
+          <span class="bit-paso-etiqueta">Entregó</span>
+          ${escHtml(mov.usuario_entrega || '—')} · ${fmtFechaHora(mov.fecha_entrega)}
+        </div>
+        <div class="bit-paso-linea">
+          <span class="bit-paso-etiqueta">Canceló</span>
+          ${escHtml(mov.usuario_recepcion || '—')} · ${fmtFechaHora(mov.fecha_recepcion)}
+        </div>
+
+        <div class="bit-paso-tiempos">
+          <span class="bit-tiempo">
+            <strong>En tránsito:</strong> ${fmtDuracion(mov.minutos_traslado)}
+          </span>
+          <span class="bit-tiempo">
+            <strong>De vuelta en Admisión:</strong> ${fmtDuracion(estancia)}${enCurso ? ' (en curso)' : ''}
+          </span>
+        </div>
+
+        ${mov.observaciones ? `<div class="bit-paso-obs">${escHtml(mov.observaciones)}</div>` : ''}
+      </div>
+    </li>`;
+}
+
 function pasoTimeline(mov, exp, ahora, esUltimo) {
   if (mov.estado === MOV_ARCHIVADO || (mov.estado === 'Cancelado' && mov.destino === ARCHIVO)) {
     return pasoArchivo(mov, ahora, esUltimo);
+  }
+  if (mov.estado === MOV_TRANSF_CANCELADA) {
+    return pasoTransfCancelada(mov, ahora, esUltimo);
   }
 
   const cancelado = mov.estado === 'Cancelado';
@@ -277,7 +326,9 @@ function resumenPorDepto(movimientos, exp, ahora) {
       min = minutosDesde(mov.fecha_recepcion, ahora);
     }
     if (mov.destino === ARCHIVO) { enArchivo += Number(min || 0); return; }
-    acum.set(mov.destino, (acum.get(mov.destino) || 0) + Number(min || 0));
+    // Tras cancelar el envío, la estancia que sigue es en Admisión, no en el destino.
+    const lugar = mov.estado === MOV_TRANSF_CANCELADA ? 'Admisión' : mov.destino;
+    acum.set(lugar, (acum.get(lugar) || 0) + Number(min || 0));
   });
 
   return { deptos: [...acum.entries()].sort((a, b) => b[1] - a[1]), enArchivo };

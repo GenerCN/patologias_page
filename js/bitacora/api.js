@@ -80,6 +80,10 @@ export function archivar({ expediente, usuario, observaciones }) {
   return call({ action: 'bitArchivar', expediente, usuario, observaciones });
 }
 
+export function cancelarTransferencia({ expediente, motivo, usuario, observaciones }) {
+  return call({ action: 'bitCancelar', expediente, motivo, usuario, observaciones });
+}
+
 export function deshacer({ expediente, usuario }) {
   return call({ action: 'bitDeshacer', expediente, usuario });
 }
@@ -107,6 +111,13 @@ export function archivarLote({ expedientes, usuario, observaciones }) {
   return call({
     action: 'bitArchivarLote',
     expedientes: expedientes.join(','), usuario, observaciones,
+  });
+}
+
+export function cancelarTransferenciaLote({ expedientes, motivo, usuario, observaciones }) {
+  return call({
+    action: 'bitCancelarLote',
+    expedientes: expedientes.join(','), motivo, usuario, observaciones,
   });
 }
 

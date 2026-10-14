@@ -52,6 +52,16 @@ export const ESTADO = {
 /** Estado del movimiento que representa el paso Admisión → Archivo. */
 export const MOV_ARCHIVADO = 'Archivado';
 
+/** Envío anulado por Admisión antes del acuse; el expediente volvió a Admisión.
+    Distinto de 'Cancelado', que es lo que deja "Deshacer". */
+export const MOV_TRANSF_CANCELADA = 'Transferencia cancelada';
+
+/** Únicos motivos aceptados. Duplicado en BIT_MOTIVOS_CANCELACION de Codigo.gs. */
+export const MOTIVOS_CANCELACION = [
+  'Cancelación de la cirugía',
+  'Cancelación de la consulta',
+];
+
 /**
  * Refresco automático.
  *
@@ -131,6 +141,14 @@ export function puedeArchivar(usuario, exp) {
 
 export function puedeSacarDeArchivo(usuario, exp) {
   if (!exp || exp.estado !== ESTADO.ARCHIVO) return false;
+  return puedeAperturar(usuario);
+}
+
+/** Admisión anula un envío propio (de Admisión o del archivo) que nadie ha
+    recibido. En tránsito, `departamento_actual` es el origen del envío. */
+export function puedeCancelarTransferencia(usuario, exp) {
+  if (!exp || exp.estado !== ESTADO.TRANSITO) return false;
+  if (exp.departamento_actual !== 'Admisión' && exp.departamento_actual !== ARCHIVO) return false;
   return puedeAperturar(usuario);
 }
 

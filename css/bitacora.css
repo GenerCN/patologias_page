@@ -213,6 +213,53 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
   background: var(--green-bg);
   border-color: #BBF7D0;
 }
+/* Cancelar transferencia */
+.bit-accion-cancelar {
+  background: #FFF7F7;
+  border-color: #FECACA;
+}
+.btn-peligro { background: var(--red); color: var(--white); }
+.btn-peligro:hover { background: #B91C1C; }
+.btn-peligro:disabled { opacity: .45; cursor: not-allowed; }
+.btn-peligro-outline {
+  background: var(--white); color: var(--red);
+  border: 1.5px solid #FCA5A5;
+}
+.btn-peligro-outline:hover { background: var(--red-bg); }
+.bit-lote .btn-peligro-outline { background: var(--white); }
+.bit-lote .btn-peligro-outline:not(:disabled):hover { background: var(--red-bg); }
+
+/* .btn fija display, que le ganaría al atributo hidden. */
+.bit-accion-cancelar [hidden] { display: none !important; }
+.bit-cancelar-form { margin-top: 14px; }
+.bit-motivos {
+  border: none; padding: 0; margin: 0 0 14px;
+}
+.bit-motivos legend {
+  font-size: 12px; font-weight: 600; color: var(--gray-700);
+  margin-bottom: 8px;
+}
+.bit-motivo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-bottom: 6px;
+  background: var(--white);
+  border: 1.5px solid var(--gray-300); border-radius: 8px;
+  font-size: 13px; color: var(--gray-700);
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+.bit-motivo:hover { border-color: #FCA5A5; }
+.bit-motivo input { accent-color: var(--red); cursor: pointer; }
+.bit-motivo:has(input:checked) {
+  border-color: var(--red); background: var(--red-bg); color: #7F1D1D; font-weight: 600;
+}
+.bit-cancelar-volver {
+  display: block; width: 100%; margin-top: 8px;
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--gray-500);
+  text-decoration: underline;
+}
+.bit-cancelar-volver:hover { color: var(--gray-700); }
+
 .bit-accion-texto {
   font-size: 13px; line-height: 1.5;
   color: var(--gray-700); margin-bottom: 14px;
@@ -310,6 +357,15 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 
 .bit-paso-cancelado .bit-paso-cuerpo { opacity: .55; }
 .bit-paso-cancelado .bit-paso-titulo { text-decoration: line-through; }
+
+/* Transferencia cancelada: sí ocurrió, así que no se tacha ni se atenúa. */
+.bit-paso-transf-cancelada .bit-paso-punto { border-color: var(--red); background: var(--red-bg); }
+.bit-paso-motivo {
+  display: inline-block;
+  font-size: 12px; font-weight: 600; color: #7F1D1D;
+  background: var(--red-bg); border-radius: 4px;
+  padding: 2px 8px; margin-bottom: 6px;
+}
 
 .bit-paso-titulo {
   font-size: 13px; font-weight: 700;

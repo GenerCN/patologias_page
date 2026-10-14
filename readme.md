@@ -210,13 +210,14 @@ Una fila por **entrega**. Es la tabla que responde "¿por dónde pasó y cuánto
 | **D** | `Destino` | Departamento que recibe, o `Archivo` en el paso de archivado. |
 | **E** | `Fecha Entrega` | ISO 8601. |
 | **F** | `Usuario Entrega` | Quién registró la salida. |
-| **G** | `Fecha Recepción` | ISO 8601. Vacío mientras nadie acuse recibo. |
-| **H** | `Usuario Recepción` | Quién confirmó la llegada. |
+| **G** | `Fecha Recepción` | ISO 8601. Vacío mientras nadie acuse recibo. En una transferencia cancelada, es la **fecha de cancelación**. |
+| **H** | `Usuario Recepción` | Quién confirmó la llegada (o quién canceló la transferencia). |
 | **I** | `Minutos Traslado` | `Fecha Recepción − Fecha Entrega`. Tiempo que el expediente anduvo "en el aire". |
-| **J** | `Minutos Estancia Destino` | Tiempo que el expediente permaneció en `Destino`. Se calcula cuando sale de ahí. En el paso de archivado, es el **tiempo que pasó en el archivo**. |
-| **K** | `Estado Movimiento` | `En tránsito` · `Recibido` · `Archivado` · `Cancelado`. |
+| **J** | `Minutos Estancia Destino` | Tiempo que el expediente permaneció en `Destino`. Se calcula cuando sale de ahí. En el paso de archivado, es el **tiempo que pasó en el archivo**. En una transferencia cancelada, es el tiempo que pasó **de vuelta en Admisión**. |
+| **K** | `Estado Movimiento` | `En tránsito` · `Recibido` · `Archivado` · `Transferencia cancelada` · `Cancelado`. |
 | **L** | `Ciclo` | Ciclo al que pertenece el movimiento. |
-| **M** | `Observaciones` | Texto libre de entrega y recepción. |
+| **M** | `Observaciones` | Texto libre de entrega, recepción y cancelación. |
+| **N** | `Motivo Cancelación` | `Cancelación de la cirugía` o `Cancelación de la consulta`. Vacío en los demás movimientos. Si la hoja se creó con una versión anterior, el encabezado se agrega solo en la siguiente operación. |
 
 > [!TIP]
 > Con las columnas **I** y **J** puedes armar tablas dinámicas directamente en Sheets: promedio de estancia por departamento, cuellos de botella por mes, o traslados que tardaron más de X minutos.
@@ -274,12 +275,30 @@ No se da de alta otra vez: el expediente ya existe y se **saca del archivo**. Al
 > [!IMPORTANT]
 > Al sacarlo, el backend **conserva el nombre ya registrado e ignora el que venga en la petición**. Es deliberado: si Admisión reescribiera *"Maria Vasquez"* donde decía *"María Elena Vázquez Ruiz"*, el nombre bueno se perdería y las búsquedas por nombre dejarían de encontrar el expediente. Para corregir un nombre mal capturado se edita la celda en la hoja `Expedientes`.
 
+### 6.2.3 Cancelar una transferencia
+
+Cuando se cancela la cirugía o la consulta, el expediente que Admisión ya mandó no debe seguir esperando acuse en Preoperatorio u Oftalmología. Admisión abre el expediente y usa **"Cancelar transferencia"**; al elegirlo aparecen los dos motivos posibles y el botón de confirmar se habilita solo cuando se marca uno:
+
+* **Cancelación de la cirugía**
+* **Cancelación de la consulta**
+
+Reglas:
+
+* **Solo Admisión** (y `admin`) cancela, y solo transferencias **en tránsito sin acuse** que salieron de Admisión o del archivo. Si el destino ya acusó recibo, el expediente se regresa con una entrega normal a Admisión. Una entrega entre otros departamentos (p. ej. Preoperatorio → Quirófanos) la resuelve quien la hizo.
+* El expediente **regresa a Admisión** (`En departamento`), también si había salido del archivo: el papel está en sus manos. Desde ahí se puede volver a entregar o guardar otra vez en el archivo. El ciclo no cambia.
+* El paso **no se borra ni se tacha**: queda en el recorrido como `Transferencia cancelada`, con el motivo en la columna **N**, quién y cuándo canceló, cuánto alcanzó a estar en tránsito y cuánto lleva de vuelta en Admisión.
+* También en **lote**: al seleccionar varios aparece `Cancelar transferencia (n)` en la barra; abre el panel con los mismos dos motivos, que se aplican a todos.
+* El departamento destino recibe un aviso en su siguiente refresco — *"Admisión canceló el envío del expediente 10432… Si ya lo tienes, devuélvelo a Admisión."* — y su contador de pendientes baja solo.
+
+No es lo mismo que **Deshacer** (§6.8): deshacer corrige un error de captura y deja el paso como `Cancelado` (tachado, como si no hubiera ocurrido). La cancelación sí ocurrió y forma parte del historial clínico-administrativo.
+
 ### 6.3 Ciclo de vida y reglas de permiso
 
 ```mermaid
 stateDiagram-v2
     [*] --> EnTransito: Admisión registra la primera salida
     EnTransito --> EnDepartamento: el destino acusa recibo
+    EnTransito --> EnDepartamento: Admisión cancela la transferencia (vuelve a Admisión)
     EnDepartamento --> EnTransito: el departamento actual lo entrega
     EnDepartamento --> Archivo: Admisión lo guarda (solo si está en Admisión)
     Archivo --> EnTransito: Admisión lo saca y lo entrega a un departamento (ciclo + 1)
@@ -293,6 +312,7 @@ stateDiagram-v2
 | Confirmar recepción | Únicamente el departamento destino, o `admin` |
 | Guardar en el archivo | `admision`, `admin` — y solo si el expediente ya regresó a Admisión |
 | Sacar del archivo | `admision`, `admin` |
+| Cancelar una transferencia | `admision`, `admin` — solo envíos de Admisión o del archivo, en tránsito sin acuse, y con motivo |
 | Deshacer el último paso | `admin` |
 | Abrir el módulo y consultar | Solo usuarios con departamento asignado en `USUARIO_DEPTO`, más `admin` |
 
@@ -315,7 +335,7 @@ Todas las marcas de tiempo se guardan en **ISO 8601 UTC** y se convierten a hora
 
 Un departamento rara vez mueve un expediente a la vez: Preoperatorio manda cinco a Quirófanos en la misma vuelta, y Admisión da de salida ocho en la mañana. Registrarlos de uno en uno es justo lo que hace que se deje de registrar.
 
-**Mover varios que ya existen.** Cada renglón de la tabla tiene una casilla, y el encabezado marca toda la página visible. Al seleccionar algo aparece una barra con `Entregar`, `Confirmar recepción` y `Archivar`.
+**Mover varios que ya existen.** Cada renglón de la tabla tiene una casilla, y el encabezado marca toda la página visible. Al seleccionar algo aparece una barra con `Entregar`, `Confirmar recepción`, `Archivar` y, para Admisión, `Cancelar transferencia`.
 
 Cada botón muestra **sobre cuántos de los seleccionados aplica de verdad** — `Confirmar recepción (3)` — y se deshabilita en cero. Mezclar expedientes en distinto estado es normal, y esconder ese número haría creer al usuario que movió más de lo que movió. Si todo lo entregable está en el mismo departamento, el selector de destino ofrece primero el siguiente paso habitual.
 
@@ -394,6 +414,7 @@ Solo el superusuario, y de un nivel. Revierte el último paso respetando su gran
 
 | Último paso registrado | Qué hace deshacer |
 | :--- | :--- |
+| Transferencia cancelada | Vuelve a dejarlo `En tránsito` hacia el destino original y borra el motivo |
 | Salida del archivo | Lo devuelve al archivo: recupera su fecha de archivo, el ciclo anterior y su contador. Aplica tanto si iba en camino como si ya se había dejado en Admisión. |
 | Guardado en el archivo | Lo regresa a Admisión y reabre su estancia ahí |
 | Recepción | Vuelve a dejarlo `En tránsito` hacia el mismo destino |

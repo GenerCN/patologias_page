@@ -2,10 +2,10 @@ import { requireAuth, logout } from '../auth.js';
 import { setStatus, showToast, escHtml } from '../utils.js';
 import { renderPagination } from '../table.js';
 import {
-  DEPARTAMENTOS, ESTADO, ALERTA, AUTO_REFRESCO, ARCHIVO,
+  DEPARTAMENTOS, ESTADO, ALERTA, AUTO_REFRESCO, ARCHIVO, MOTIVOS_CANCELACION,
   deptoDe, tieneAccesoBitacora,
   puedeAperturar, puedeEntregar, puedeRecibir, puedeArchivar, puedeSacarDeArchivo, puedeDeshacer,
-  destinosDesde,
+  puedeCancelarTransferencia, destinosDesde,
 } from './config.js';
 import * as api from './api.js';
 import {
@@ -19,6 +19,40 @@ function opcionesSalidaAdmision() {
     .filter(d => d !== 'Admisión')
     .map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`)
     .join('');
+}
+
+/* Formulario de cancelación, compartido por el panel de un expediente y el
+   de varios. Los motivos son botones de opción, no una lista desplegable,
+   para que ambos queden a la vista al elegir cancelar. */
+function formCancelacion({ obsInicial = '', etiqueta = 'Confirmar cancelación' } = {}) {
+  return `
+    <fieldset class="bit-motivos">
+      <legend>Motivo de la cancelación *</legend>
+      ${MOTIVOS_CANCELACION.map(m => `
+        <label class="bit-motivo">
+          <input type="radio" name="bit-motivo" value="${escHtml(m)}"> ${escHtml(m)}
+        </label>`).join('')}
+    </fieldset>
+    <div class="field-group">
+      <label for="bit-obs-cancelar">Observaciones (opcional)</label>
+      <input type="text" id="bit-obs-cancelar" value="${escHtml(obsInicial)}"
+             placeholder="Ej. paciente con fiebre, se reprograma">
+    </div>
+    <button class="btn btn-peligro" id="bit-btn-cancelar" disabled>${escHtml(etiqueta)}</button>`;
+}
+
+/** Habilita el botón solo cuando hay motivo y devuelve cómo leer lo capturado. */
+function conectarFormCancelacion() {
+  const boton = document.getElementById('bit-btn-cancelar');
+  document.querySelectorAll('input[name="bit-motivo"]').forEach(r =>
+    r.addEventListener('change', () => { boton.disabled = false; }));
+  return {
+    boton,
+    leer: () => ({
+      motivo: (document.querySelector('input[name="bit-motivo"]:checked') || {}).value || '',
+      observaciones: document.getElementById('bit-obs-cancelar').value.trim(),
+    }),
+  };
 }
 
 const PAGE_SIZE = 15;
@@ -60,7 +94,8 @@ const seleccion = new Set();
 /* Llegadas detectadas con la pestaña oculta. El aviso emergente dura unos
    segundos y nadie lo vería, así que se guardan y se muestran al volver; el
    título de la pestaña lleva una marca mientras haya alguna sin ver. */
-const llegadasSinVer = new Map();   // expediente -> registro
+const llegadasSinVer   = new Map();   // expediente -> registro
+const canceladasSinVer = new Map();   // envíos hacia mí que Admisión canceló
 
 const TITULO_BASE = document.title;
 
@@ -140,8 +175,8 @@ function pendientesDeRecibir() {
    plano, que es donde la bitácora va a estar la mayor parte del turno. */
 function actualizarTitulo() {
   const n = pendientesDeRecibir();
-  // "●" = te llegó algo desde la última vez que viste la pestaña.
-  const nuevo = llegadasSinVer.size ? '● ' : '';
+  // "●" = te llegó (o te cancelaron) algo desde la última vez que viste la pestaña.
+  const nuevo = llegadasSinVer.size || canceladasSinVer.size ? '● ' : '';
   document.title = nuevo + (n ? `(${n}) ` : '') + TITULO_BASE;
 }
 
@@ -219,6 +254,7 @@ function pintarBarraLote(pagina) {
   const entregables = sel.filter(e => puedeEntregar(usuario, e));
   const recibibles  = sel.filter(e => puedeRecibir(usuario, e));
   const archivables = sel.filter(e => puedeArchivar(usuario, e));
+  const cancelables = sel.filter(e => puedeCancelarTransferencia(usuario, e));
 
   const marcar = (id, lista, etiqueta) => {
     const btn = document.getElementById(id);
@@ -228,6 +264,7 @@ function pintarBarraLote(pagina) {
   marcar('bit-lote-entregar', entregables, 'Entregar');
   marcar('bit-lote-recibir',  recibibles,  'Confirmar recepción');
   marcar('bit-lote-archivar', archivables, 'Archivar');
+  marcar('bit-lote-cancelar', cancelables, 'Cancelar transferencia');
 
   /* Si todo lo entregable está en el mismo departamento se ofrece el
      siguiente paso habitual primero; si está repartido, la lista completa. */
@@ -291,9 +328,49 @@ function mostrarResultadoLote(res) {
   document.getElementById('app-body').classList.add('panel-open');
 }
 
-/** Corre una acción en lote y reporta el resultado. */
+/** Panel para cancelar de golpe varias transferencias con el mismo motivo. */
+function abrirCancelarLote() {
+  const lista = seleccionados().filter(x => puedeCancelarTransferencia(usuario, x));
+  if (!lista.length) return;
+
+  cerrarPanel();
+  document.getElementById('panel-title').textContent = 'Cancelar transferencias';
+  document.getElementById('panel-subtitle').textContent =
+    `${lista.length} expediente(s) en tránsito sin acuse`;
+
+  document.querySelector('#side-panel .panel-body').innerHTML = `
+    <div class="bit-accion bit-accion-cancelar">
+      <p class="bit-accion-texto">
+        Se cancelará el envío de estos expedientes y regresarán a Admisión.
+        El motivo se aplica a todos.
+      </p>
+      <div class="bit-lote-lista">${lista.map(e => `
+        <span class="bit-badge bit-badge-transito"
+              title="${escHtml(e.nombre_paciente)}">${escHtml(e.expediente)} → ${escHtml(e.destino_pendiente)}</span>`).join('')}
+      </div>
+      <div class="bit-cancelar-form">
+        ${formCancelacion({ obsInicial: obsLote(), etiqueta: `Cancelar ${lista.length} transferencia(s)` })}
+      </div>
+    </div>`;
+
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('app-body').classList.add('panel-open');
+
+  const { boton, leer } = conectarFormCancelacion();
+  boton.addEventListener('click', async () => {
+    const { motivo, observaciones } = leer();
+    if (!motivo) { showToast('Elige el motivo de la cancelación.', true); return; }
+    const claves = lista.map(e => e.expediente);
+    const res = await ejecutarLote(boton, claves, () =>
+      api.cancelarTransferenciaLote({ expedientes: claves, motivo, usuario, observaciones }));
+    // Con rechazos el panel ya muestra el detalle; sin ellos no queda nada que ver.
+    if (res && !res.fallidos.length) cerrarPanel();
+  });
+}
+
+/** Corre una acción en lote y reporta el resultado. Devuelve la respuesta, o null si falló. */
 async function ejecutarLote(boton, claves, fn) {
-  if (!claves.length) return;
+  if (!claves.length) return null;
 
   const etiqueta = boton.textContent;
   boton.disabled = true;
@@ -312,9 +389,11 @@ async function ejecutarLote(boton, claves, fn) {
 
     await cargar();
     if (res.fallidos.length) mostrarResultadoLote(res);
+    return res;
   } catch (e) {
     setStatus('error', 'Error al guardar');
     showToast(e.message, true);
+    return null;
   } finally {
     guardando = false;
     boton.disabled = false;
@@ -395,35 +474,64 @@ function mensajeLlegadas(lista) {
     : `Te enviaron ${lista.length} expedientes. Confirma su recepción.`;
 }
 
-/** Avisa cuando alguien acaba de mandarle un expediente a mi departamento. */
+/* Quien esperaba el expediente debe enterarse de que ya no va: si el papel
+   alcanzó a llegarle sin acuse, tiene que devolverlo a Admisión. */
+function mensajeCanceladas(lista) {
+  const uno = lista[0];
+  return lista.length === 1
+    ? `Admisión canceló el envío del expediente ${uno.expediente} — ${uno.nombre_paciente}. ` +
+      'Si ya lo tienes, devuélvelo a Admisión.'
+    : `Admisión canceló ${lista.length} envíos a ${miDepto}. Si ya los tienes, devuélvelos.`;
+}
+
+/** Avisa cuando alguien acaba de mandarle (o cancelarle) un expediente a mi departamento. */
 function avisarLlegadas(previos, nuevos) {
   if (!miDepto) return;
 
-  const antes = new Map(previos.map(e => [e.expediente, firma(e)]));
+  const antes = new Map(previos.map(e => [e.expediente, e]));
   const llegando = nuevos.filter(e =>
     e.estado === ESTADO.TRANSITO &&
     e.destino_pendiente === miDepto &&
-    antes.get(e.expediente) !== firma(e));
+    (!antes.has(e.expediente) || firma(antes.get(e.expediente)) !== firma(e)));
 
-  if (!llegando.length) return;
+  // Venía hacia mí sin acuse y ahora está de vuelta en Admisión.
+  const cancelados = miDepto === 'Admisión' ? [] : nuevos.filter(e => {
+    const previo = antes.get(e.expediente);
+    return previo && previo.estado === ESTADO.TRANSITO && previo.destino_pendiente === miDepto &&
+           e.estado === ESTADO.DEPTO && e.departamento_actual === 'Admisión';
+  });
+
+  if (!llegando.length && !cancelados.length) return;
 
   if (document.visibilityState !== 'visible') {
     llegando.forEach(e => llegadasSinVer.set(e.expediente, e));
+    cancelados.forEach(e => { llegadasSinVer.delete(e.expediente); canceladasSinVer.set(e.expediente, e); });
     actualizarTitulo();
     return;
   }
-  showToast(mensajeLlegadas(llegando));
+  // Un solo aviso: dos seguidos se pisarían en el mismo recuadro.
+  showToast([
+    llegando.length ? mensajeLlegadas(llegando) : '',
+    cancelados.length ? mensajeCanceladas(cancelados) : '',
+  ].filter(Boolean).join(' · '));
 }
 
-/** Al volver a la pestaña: muestra lo que llegó mientras no se veía. */
+/** Al volver a la pestaña: muestra lo que llegó o se canceló mientras no se veía. */
 function mostrarLlegadasSinVer() {
-  if (!llegadasSinVer.size) return;
+  if (!llegadasSinVer.size && !canceladasSinVer.size) return;
   // Solo las que siguen esperando acuse; alguien pudo recibirlas ya.
   const vigentes = [...llegadasSinVer.values()].filter(e => expedientes.some(x =>
     x.expediente === e.expediente && x.estado === ESTADO.TRANSITO && x.destino_pendiente === miDepto));
+  const canceladas = [...canceladasSinVer.values()];
   llegadasSinVer.clear();
+  canceladasSinVer.clear();
   actualizarTitulo();
-  if (vigentes.length) showToast(mensajeLlegadas(vigentes));
+
+  const msg = [
+    vigentes.length ? mensajeLlegadas(vigentes) : '',
+    canceladas.length ? mensajeCanceladas(canceladas) : '',
+  ].filter(Boolean).join(' · ');
+  if (msg) showToast(msg);
 }
 
 function pintarSync() {
@@ -497,6 +605,24 @@ function bloqueAcciones(exp) {
           <input type="text" id="bit-obs-recibir" placeholder="Ej. llegó incompleto, falta hoja de consentimiento">
         </div>
         <button class="btn btn-new" id="bit-btn-recibir">Confirmar recepción</button>
+      </div>`);
+  }
+
+  /* Los motivos se despliegan al elegir cancelar: así no se cancela de un
+     clic por accidente y el motivo nunca queda en blanco. */
+  if (puedeCancelarTransferencia(usuario, exp)) {
+    acciones.push(`
+      <div class="bit-accion bit-accion-cancelar">
+        <p class="bit-accion-texto">
+          Va en camino a <strong>${escHtml(exp.destino_pendiente)}</strong>, que aún no acusa recibo.
+          Si se canceló la cirugía o la consulta, cancela la transferencia y el
+          expediente regresa a Admisión.
+        </p>
+        <button class="btn btn-peligro-outline" id="bit-btn-cancelar-abrir">Cancelar transferencia</button>
+        <div id="bit-cancelar-form" class="bit-cancelar-form" hidden>
+          ${formCancelacion()}
+          <button type="button" class="bit-cancelar-volver" id="bit-btn-cancelar-volver">No cancelar</button>
+        </div>
       </div>`);
   }
 
@@ -641,12 +767,37 @@ function conectarAcciones(exp) {
       })));
   }
 
+  const btnCancelarAbrir = document.getElementById('bit-btn-cancelar-abrir');
+  if (btnCancelarAbrir) {
+    const form = document.getElementById('bit-cancelar-form');
+    const { boton, leer } = conectarFormCancelacion();
+
+    btnCancelarAbrir.addEventListener('click', () => {
+      btnCancelarAbrir.hidden = true;
+      form.hidden = false;
+      form.querySelector('input[name="bit-motivo"]').focus();
+    });
+    document.getElementById('bit-btn-cancelar-volver').addEventListener('click', () => {
+      form.hidden = true;
+      btnCancelarAbrir.hidden = false;
+    });
+
+    boton.addEventListener('click', () => {
+      const { motivo, observaciones } = leer();
+      if (!motivo) { showToast('Elige el motivo de la cancelación.', true); return; }
+      ejecutar(boton, () => api.cancelarTransferencia({
+        expediente: exp.expediente, motivo, usuario, observaciones,
+      }));
+    });
+  }
+
   const btnDeshacer = document.getElementById('bit-btn-deshacer');
   if (btnDeshacer) {
     btnDeshacer.addEventListener('click', () => {
       const ok = confirm(
         `¿Deshacer el último paso del expediente ${exp.expediente}?\n\n` +
-        'Esto revierte el registro más reciente (recepción, entrega, archivo o salida del archivo). ' +
+        'Esto revierte el registro más reciente (recepción, entrega, cancelación de transferencia, ' +
+        'archivo o salida del archivo). ' +
         'La acción queda marcada en la hoja de cálculo.');
       if (!ok) return;
       ejecutar(btnDeshacer, () => api.deshacer({ expediente: exp.expediente, usuario }));
@@ -1167,6 +1318,8 @@ document.getElementById('bit-lote-archivar').addEventListener('click', e => {
     api.archivarLote({ expedientes: claves, usuario, observaciones: obsLote() }));
 });
 
+document.getElementById('bit-lote-cancelar').addEventListener('click', abrirCancelarLote);
+
 document.querySelectorAll('.filter-chip').forEach(chip => {
   chip.addEventListener('click', () => {
     filtroActivo = filtroActivo === chip.dataset.filter ? null : chip.dataset.filter;
@@ -1192,6 +1345,8 @@ document.getElementById('header-depto').textContent =
 
 if (!puedeAperturar(usuario)) {
   document.getElementById('btn-new').style.display = 'none';
+  // Solo Admisión cancela transferencias; a los demás sería un botón siempre en (0).
+  document.getElementById('bit-lote-cancelar').style.display = 'none';
 }
 
 if (miDepto) {
