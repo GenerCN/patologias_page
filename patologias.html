@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Centro Médico San Lucas — Patologías</title>
   <link rel="stylesheet" href="css/styles.css">
-  <script>if (!localStorage.getItem('cmsl_session')) location.replace('login.html');</script>
+  <!-- Arranca oculta: js/main.js la destapa solo si el usuario tiene acceso
+       a Patologías, para que los departamentos clínicos no alcancen a verla. -->
+  <style>html.pat-verificando { visibility: hidden; }</style>
+  <script>
+    document.documentElement.className = 'pat-verificando';
+    if (!localStorage.getItem('cmsl_session')) location.replace('login.html');
+  </script>
 </head>
 <body>
 

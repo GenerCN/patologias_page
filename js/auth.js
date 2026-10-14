@@ -34,6 +34,16 @@ export function getEditableSections() {
   return PERMISSIONS[normUser(session.usuario)] || [];
 }
 
+/**
+ * Quién puede abrir el módulo de Patologías: farmacia, admision,
+ * contabilidad y admin. Falla cerrado igual que la bitácora: solo entra quien
+ * tiene secciones en PERMISSIONS, así que los departamentos clínicos
+ * (preoperatorio, quirofanos, …) y cualquier usuario nuevo sin mapear quedan fuera.
+ */
+export function tieneAccesoPatologias(usuario) {
+  return Boolean(PERMISSIONS[normUser(usuario || '')]);
+}
+
 export function canCreateRecord() {
   const session = getSession();
   if (!session) return false;

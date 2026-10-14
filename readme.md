@@ -80,6 +80,30 @@ sequenceDiagram
 
 ## 3. Gestión de Roles y Permisos
 
+### Acceso a módulos
+
+| Usuario | Patologías | Bitácora de Expedientes |
+| :--- | :---: | :---: |
+| **admin** | ✅ | ✅ |
+| **admision** | ✅ | ✅ |
+| **farmacia** | ✅ | ❌ |
+| **contabilidad** | ✅ | ❌ |
+| **preoperatorio**, **oftalmologia**, **quirofanos**, **recuperacion**, **hospitalizacion** | ❌ | ✅ |
+
+Ambas reglas **fallan cerrado**: un usuario entra solo si está mapeado explícitamente.
+
+* **Patologías** → tener secciones en `PERMISSIONS` de `js/config.js` (`tieneAccesoPatologias()` en `js/auth.js`).
+* **Bitácora** → tener departamento en `USUARIO_DEPTO` o ser superusuario (`tieneAccesoBitacora()` en `js/bitacora/config.js`).
+
+Un usuario que se agregue a la hoja `Usuarios` sin mapearlo en ninguno de los dos no ve ningún módulo, y el dashboard le indica que pida acceso a Sistemas.
+
+El bloqueo actúa en dos puntos en cada módulo: la tarjeta se elimina del dashboard, y la página arranca oculta y redirige al dashboard si el usuario no tiene acceso, así que entrar por URL directa no muestra nada.
+
+> [!IMPORTANT]
+> Es un control de **interfaz**. La API de Patologías (`getAll`, `search`, `update`, `create`) no recibe ni valida el usuario, igual que las consultas de la bitácora; quien conozca la URL del Apps Script podría llamarla a mano. Las escrituras de la bitácora sí validan el usuario en el backend.
+
+### Secciones editables en Patologías
+
 El sistema implementa un control de acceso basado en el nombre de usuario (normalizado a minúsculas y sin acentos). Este control define qué secciones del registro de patología son **editables** por cada perfil en el panel lateral.
 
 Las secciones de campos definidas en el sistema son:

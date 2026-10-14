@@ -3,7 +3,16 @@ import { setStatus, showToast, normalizeRecord } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable, renderPagination } from './table.js';
 import { openPanel, openNewPanel, closePanel, collectPanelValues, getActiveRecord, isNewRecord } from './panel.js';
-import { canCreateRecord } from './auth.js';
+import { canCreateRecord, getSession, tieneAccesoPatologias } from './auth.js';
+
+/* Portero del módulo. El `throw` corta la evaluación para que no se pinte
+   ni se consulte nada mientras el navegador procesa la redirección. */
+const session = getSession();
+if (!session || !tieneAccesoPatologias(session.usuario)) {
+  window.location.replace(session ? 'index.html' : 'login.html');
+  throw new Error('Este usuario no tiene acceso al módulo de patologías.');
+}
+document.documentElement.classList.remove('pat-verificando');
 
 const PAGE_SIZE = 15;
 
