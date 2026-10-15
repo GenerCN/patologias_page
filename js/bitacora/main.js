@@ -55,7 +55,54 @@ function conectarFormCancelacion() {
   };
 }
 
-const PAGE_SIZE = 30;   // registros por página; el resto se navega con la paginación
+/* Al registrar, Admisión decide si el expediente sale ya o se queda con
+   ella. Sin opción preseleccionada a propósito: con una por defecto se
+   terminarían mandando expedientes a Preoperatorio sin que nadie lo decidiera. */
+function formDestinoAlta(prefijo) {
+  return `
+    <fieldset class="bit-opciones-alta">
+      <legend>¿Qué hacer con el expediente? *</legend>
+      <label class="bit-opcion">
+        <input type="radio" name="${prefijo}-modo" value="transferir"> Transferir a otro departamento
+      </label>
+      <div class="bit-opcion-destino" id="${prefijo}-destino-wrap" hidden>
+        <select id="${prefijo}-destino" aria-label="Departamento destino">${opcionesSalidaAdmision()}</select>
+      </div>
+      <label class="bit-opcion">
+        <input type="radio" name="${prefijo}-modo" value="quedar"> Dejar en Admisión
+      </label>
+    </fieldset>`;
+}
+
+/**
+ * Muestra el selector de departamento solo al elegir transferir y avisa del
+ * cambio de opción. Devuelve una función que da el destino elegido
+ * ('Admisión' si se queda) o null si todavía no se elige nada.
+ */
+function conectarDestinoAlta(prefijo, alCambiar) {
+  const wrap   = document.getElementById(`${prefijo}-destino-wrap`);
+  const select = document.getElementById(`${prefijo}-destino`);
+  const radios = document.querySelectorAll(`input[name="${prefijo}-modo"]`);
+
+  radios.forEach(r => r.addEventListener('change', () => {
+    wrap.hidden = r.value !== 'transferir';
+    if (r.value === 'transferir') select.focus();
+    alCambiar(r.value);
+  }));
+
+  return () => {
+    const elegido = [...radios].find(r => r.checked);
+    if (!elegido) return null;
+    return elegido.value === 'quedar' ? 'Admisión' : select.value;
+  };
+}
+
+const ETIQUETA_ALTA = {
+  transferir: 'Registrar y transferir',
+  quedar:     'Registrar en Admisión',
+};
+
+const PAGE_SIZE = 30;  // registros por página; el resto se navega con la paginación
 
 const session = requireAuth();
 const usuario = session ? session.usuario : '';
@@ -955,8 +1002,8 @@ function abrirNuevo() {
   filaActiva = null;
   expActivo  = null;
 
-  document.getElementById('panel-title').textContent = 'Registrar salida';
-  document.getElementById('panel-subtitle').textContent = 'Admisión da de salida el expediente';
+  document.getElementById('panel-title').textContent = 'Registrar expediente';
+  document.getElementById('panel-subtitle').textContent = 'Transferirlo a un departamento o dejarlo en Admisión';
 
   document.querySelector('#side-panel .panel-body').innerHTML = `
     <div class="bit-modos">
@@ -994,15 +1041,12 @@ function pintarNuevoUno() {
         <label for="bit-nuevo-nombre">Nombre del paciente *</label>
         <input type="text" id="bit-nuevo-nombre" autocomplete="off">
       </div>
-      <div class="field-group">
-        <label for="bit-nuevo-destino">Entregar a *</label>
-        <select id="bit-nuevo-destino">${opcionesSalidaAdmision()}</select>
-      </div>
+      ${formDestinoAlta('bit-nuevo')}
       <div class="field-group">
         <label for="bit-nuevo-obs">Observaciones (opcional)</label>
         <input type="text" id="bit-nuevo-obs" placeholder="Ej. cirugía programada 9:00 am">
       </div>
-      <button class="btn btn-new" id="bit-btn-crear">Registrar salida</button>
+      <button class="btn btn-new" id="bit-btn-crear" disabled>Elige qué hacer con el expediente</button>
       <p class="bit-nota">
         Escribe el número de expediente y sal del campo: si ya está en la
         bitácora se completa el nombre solo y se abre un ciclo nuevo
@@ -1016,18 +1060,29 @@ function pintarNuevoUno() {
   const btnCrear  = document.getElementById('bit-btn-crear');
   inpExp.focus();
 
+  // El botón depende de dos cosas: que el expediente pueda salir y que se elija qué hacer.
+  let enCirculacion = false;
+  let modo = null;
+  const pintarBoton = () => {
+    btnCrear.disabled = enCirculacion || !modo;
+    btnCrear.textContent = modo ? ETIQUETA_ALTA[modo] : 'Elige qué hacer con el expediente';
+  };
+
   vincularAutocompletado(inpExp, inpNombre, aviso, estado => {
-    btnCrear.disabled = estado === 'activo';
+    enCirculacion = estado === 'activo';
+    pintarBoton();
   });
+  const leerDestino = conectarDestinoAlta('bit-nuevo', m => { modo = m; pintarBoton(); });
 
   btnCrear.addEventListener('click', async () => {
     const expediente = inpExp.value.trim();
     const nombre     = inpNombre.value.trim();
-    const destino    = document.getElementById('bit-nuevo-destino').value;
+    const destino    = leerDestino();
     const obs        = document.getElementById('bit-nuevo-obs').value.trim();
 
     if (!expediente) { showToast('El número de expediente es obligatorio.', true); return; }
     if (!nombre)     { showToast('El nombre del paciente es obligatorio.', true); return; }
+    if (!destino)    { showToast('Elige si se transfiere o se queda en Admisión.', true); return; }
 
     btnCrear.disabled = true;
     btnCrear.textContent = 'Guardando…';
@@ -1043,8 +1098,7 @@ function pintarNuevoUno() {
       if (creado) abrirExpediente(creado, null);
       else cerrarPanel();
     } catch (e) {
-      btnCrear.disabled = false;
-      btnCrear.textContent = 'Registrar salida';
+      pintarBoton();
       setStatus('error', 'Error al guardar');
       showToast(e.message, true);
     } finally {
@@ -1062,7 +1116,7 @@ function pintarNuevoVarios() {
   document.getElementById('bit-nuevo-cuerpo').innerHTML = `
     <div class="bit-accion">
       <p class="bit-accion-texto">
-        Captura los expedientes que salen al mismo destino. Al salir del campo
+        Captura los expedientes que van al mismo lugar. Al salir del campo
         de número, los que ya existen completan su nombre solos.
       </p>
 
@@ -1075,16 +1129,13 @@ function pintarNuevoVarios() {
         + Agregar renglón
       </button>
 
-      <div class="field-group">
-        <label for="bit-varios-destino">Entregar todos a *</label>
-        <select id="bit-varios-destino">${opcionesSalidaAdmision()}</select>
-      </div>
+      ${formDestinoAlta('bit-varios')}
       <div class="field-group">
         <label for="bit-varios-obs">Observaciones para todos (opcional)</label>
         <input type="text" id="bit-varios-obs" placeholder="Ej. cirugías programadas del turno matutino">
       </div>
 
-      <button class="btn btn-new" id="bit-btn-crear-varios">Registrar salidas</button>
+      <button class="btn btn-new" id="bit-btn-crear-varios" disabled>Elige qué hacer con los expedientes</button>
       <p class="bit-nota">
         Máximo ${MAX_ALTA_LOTE} expedientes por operación. Los renglones vacíos
         se ignoran. Si alguno no se puede procesar, los demás sí se registran y
@@ -1103,9 +1154,16 @@ function pintarNuevoVarios() {
     agregarRenglon().querySelector('input').focus();
   });
 
-  document.getElementById('bit-btn-crear-varios')
-    .addEventListener('click', registrarVariasSalidas);
+  const btnVarios = document.getElementById('bit-btn-crear-varios');
+  leerDestinoVarios = conectarDestinoAlta('bit-varios', modo => {
+    btnVarios.disabled = false;
+    btnVarios.textContent = ETIQUETA_ALTA[modo];
+  });
+  btnVarios.addEventListener('click', registrarVariasSalidas);
 }
+
+/** Lector del destino del modo "varios"; se reasigna cada vez que se pinta el formulario. */
+let leerDestinoVarios = () => null;
 
 function agregarRenglon() {
   const cont = document.getElementById('bit-renglones');
@@ -1197,14 +1255,19 @@ async function registrarVariasSalidas(ev) {
     return;
   }
 
+  const destino = leerDestinoVarios();
+  if (!destino) {
+    showToast('Elige si se transfieren o se quedan en Admisión.', true);
+    return;
+  }
+
   const boton = ev.currentTarget;
-  const destino = document.getElementById('bit-varios-destino').value;
-  const obs     = document.getElementById('bit-varios-obs').value.trim();
+  const obs   = document.getElementById('bit-varios-obs').value.trim();
 
   const etiqueta = boton.textContent;
   boton.disabled = true;
   boton.textContent = 'Guardando…';
-  setStatus('loading', `Registrando ${items.length} salida(s)…`);
+  setStatus('loading', `Registrando ${items.length} expediente(s)…`);
   guardando = true;
 
   try {

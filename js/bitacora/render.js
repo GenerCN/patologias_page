@@ -230,7 +230,40 @@ function pasoTransfCancelada(mov, ahora, esUltimo) {
     </li>`;
 }
 
+/** Alta que se quedó en Admisión: sin traslado ni acuse, solo cuánto estuvo ahí. */
+function pasoAltaEnAdmision(mov, ahora, esUltimo) {
+  let estancia = mov.minutos_estancia;
+  let enCurso = false;
+  if (estancia === null && esUltimo) {
+    estancia = minutosDesde(mov.fecha_recepcion, ahora);
+    enCurso = true;
+  }
+  const alerta = enCurso && estancia >= ALERTA.ESTANCIA;
+
+  return `
+    <li class="bit-paso bit-paso-ok">
+      <div class="bit-paso-punto"></div>
+      <div class="bit-paso-cuerpo">
+        <div class="bit-paso-titulo">Registrado en Admisión</div>
+        <div class="bit-paso-linea">
+          <span class="bit-paso-etiqueta">Registró</span>
+          ${escHtml(mov.usuario_entrega || '—')} · ${fmtFechaHora(mov.fecha_entrega)}
+        </div>
+        <div class="bit-paso-tiempos">
+          <span class="bit-tiempo${alerta ? ' bit-tiempo-alerta' : ''}">
+            <strong>En Admisión:</strong> ${fmtDuracion(estancia)}${enCurso ? ' (en curso)' : ''}
+          </span>
+        </div>
+        ${mov.observaciones ? `<div class="bit-paso-obs">${escHtml(mov.observaciones)}</div>` : ''}
+      </div>
+    </li>`;
+}
+
 function pasoTimeline(mov, exp, ahora, esUltimo) {
+  // Origen = destino solo ocurre en un alta que se quedó en Admisión.
+  if (mov.origen === mov.destino && mov.estado !== 'Cancelado') {
+    return pasoAltaEnAdmision(mov, ahora, esUltimo);
+  }
   if (mov.estado === MOV_ARCHIVADO || (mov.estado === 'Cancelado' && mov.destino === ARCHIVO)) {
     return pasoArchivo(mov, ahora, esUltimo);
   }

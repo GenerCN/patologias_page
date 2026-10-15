@@ -279,6 +279,17 @@ El flujo es una **sugerencia, no una restricción**: el panel preselecciona el s
 
 El ciclo termina cuando el expediente regresa a Admisión y Admisión lo **guarda en el archivo**.
 
+#### Registrar un expediente nuevo
+
+Al registrar uno o varios expedientes con **"Nuevo expediente"**, Admisión debe elegir qué hacer con ellos; no hay opción preseleccionada para que nadie mande un expediente a un departamento sin decidirlo:
+
+| Opción | Resultado |
+| :--- | :--- |
+| **Transferir a otro departamento** | Aparece la lista de departamentos. El expediente sale `En tránsito` y el destino debe acusar recibo. |
+| **Dejar en Admisión** | El expediente queda `En departamento` en Admisión. Se registra un paso `Admisión → Admisión` con acuse inmediato (en la línea de tiempo: *"Registrado en Admisión"*), así el tiempo que pasa ahí se mide y la siguiente entrega lo cierra. Después se transfiere o se archiva desde su panel, como cualquier otro. |
+
+La misma elección aplica al sacar un expediente del archivo desde este panel. En el modo **Varios a la vez** la opción se aplica a todos los renglones.
+
 ### 6.2.1 El archivo
 
 El archivo **no es un departamento**: es una ubicación propia. Un expediente archivado no está en Admisión ni en ningún otro lado — está guardado. Las reglas:
@@ -294,7 +305,7 @@ El archivo **no es un departamento**: es una ubicación propia. Un expediente ar
 No se da de alta otra vez: el expediente ya existe y se **saca del archivo**. Al sacarlo se abre un **ciclo nuevo** conservando íntegro el historial anterior. Hay dos caminos:
 
 * **Desde el expediente**: buscarlo por número (la búsqueda sí muestra los archivados) y usar **"Sacar del archivo"** en el panel. Se elige entre **dejarlo en Admisión** (para consulta o trámite; queda recibido ahí de inmediato) o **entregarlo directamente** a un departamento.
-* **Desde "Nueva salida"** (uno o varios a la vez): al escribir un número que está en el archivo, el nombre se completa solo y se avisa que se sacará y qué ciclo se abrirá. Si el expediente sigue en circulación, el aviso lo señala y el guardado se bloquea.
+* **Desde "Nuevo expediente"** (uno o varios a la vez): al escribir un número que está en el archivo, el nombre se completa solo y se avisa que se sacará y qué ciclo se abrirá. Si el expediente sigue en circulación, el aviso lo señala y el guardado se bloquea.
 
 > [!IMPORTANT]
 > Al sacarlo, el backend **conserva el nombre ya registrado e ignora el que venga en la petición**. Es deliberado: si Admisión reescribiera *"Maria Vasquez"* donde decía *"María Elena Vázquez Ruiz"*, el nombre bueno se perdería y las búsquedas por nombre dejarían de encontrar el expediente. Para corregir un nombre mal capturado se edita la celda en la hoja `Expedientes`.
@@ -320,7 +331,8 @@ No es lo mismo que **Deshacer** (§6.8): deshacer corrige un error de captura y 
 
 ```mermaid
 stateDiagram-v2
-    [*] --> EnTransito: Admisión registra la primera salida
+    [*] --> EnTransito: Admisión lo registra y lo transfiere
+    [*] --> EnDepartamento: Admisión lo registra y lo deja en Admisión
     EnTransito --> EnDepartamento: el destino acusa recibo
     EnTransito --> EnDepartamento: Admisión cancela la transferencia (vuelve a Admisión)
     EnDepartamento --> EnTransito: el departamento actual lo entrega
@@ -363,7 +375,7 @@ Un departamento rara vez mueve un expediente a la vez: Preoperatorio manda cinco
 
 Cada botón muestra **sobre cuántos de los seleccionados aplica de verdad** — `Confirmar recepción (3)` — y se deshabilita en cero. Mezclar expedientes en distinto estado es normal, y esconder ese número haría creer al usuario que movió más de lo que movió. Si todo lo entregable está en el mismo departamento, el selector de destino ofrece primero el siguiente paso habitual.
 
-**Dar de alta varios nuevos.** El panel de *Nueva salida* tiene dos modos: **Un expediente** y **Varios a la vez**. En el segundo se capturan renglones de `número + nombre` hacia un destino común. Cada renglón consulta al salir del campo de número y se marca solo:
+**Dar de alta varios nuevos.** El panel de *Nuevo expediente* tiene dos modos: **Un expediente** y **Varios a la vez**. En el segundo se capturan renglones de `número + nombre` que van al mismo lugar. Cada renglón consulta al salir del campo de número y se marca solo:
 
 | Renglón | Qué pasa |
 | :--- | :--- |
@@ -439,6 +451,7 @@ Solo el superusuario, y de un nivel. Revierte el último paso respetando su gran
 | Último paso registrado | Qué hace deshacer |
 | :--- | :--- |
 | Transferencia cancelada | Vuelve a dejarlo `En tránsito` hacia el destino original y borra el motivo |
+| Registro en Admisión (alta sin transferir) | Anula el paso; el expediente sigue en Admisión, sin movimientos |
 | Salida del archivo | Lo devuelve al archivo: recupera su fecha de archivo, el ciclo anterior y su contador. Aplica tanto si iba en camino como si ya se había dejado en Admisión. |
 | Guardado en el archivo | Lo regresa a Admisión y reabre su estancia ahí |
 | Recepción | Vuelve a dejarlo `En tránsito` hacia el mismo destino |
