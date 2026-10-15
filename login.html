@@ -4,80 +4,113 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Centro Médico San Lucas — Iniciar sesión</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <style>
     :root {
       --blue-900: #0A2540;
+      --blue-800: #0F3460;
       --blue-700: #1C4B82;
       --blue-500: #2E78D4;
       --blue-300: #7DB4ED;
       --blue-100: #E8F2FC;
-      --blue-50:  #F2F7FD;
+      --blue-50:  #F4F8FD;
       --white:    #FFFFFF;
+      --gray-900: #111827;
       --gray-700: #374151;
       --gray-500: #6B7280;
+      --gray-400: #9CA3AF;
       --gray-300: #D1D5DB;
       --gray-100: #F3F4F6;
       --red:      #DC2626;
       --red-bg:   #FEE2E2;
       --shadow-md: 0 4px 16px rgba(10,37,64,.12);
-      --shadow-lg: 0 8px 32px rgba(10,37,64,.18);
+      --shadow-lg: 0 20px 60px rgba(10,37,64,.20);
       --radius: 8px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      background: var(--blue-50);
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, #DCEAFB 0, transparent 45%),
+        radial-gradient(circle at 85% 90%, #E2EEFB 0, transparent 45%),
+        #F3F6FA;
       color: var(--gray-700);
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px;
+      -webkit-font-smoothing: antialiased;
     }
+    button, input { font-family: inherit; }
 
     /* ── Card ── */
     .login-card {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       background: var(--white);
-      border-radius: 14px;
+      border-radius: 18px;
       box-shadow: var(--shadow-lg);
       width: 100%;
-      max-width: 380px;
+      max-width: 860px;
       overflow: hidden;
     }
+    .login-card > * { min-width: 0; }
 
-    .login-header {
-      background: var(--blue-900);
-      padding: 28px 32px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
+    /* ── Panel de marca ── */
+    .login-brand {
+      position: relative;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(125,180,237,.35) 0, transparent 45%),
+        linear-gradient(150deg, var(--blue-900) 0%, var(--blue-700) 100%);
+      color: var(--white);
+      padding: 40px 36px;
+      display: flex; flex-direction: column; gap: 28px;
+      overflow: hidden;
     }
-    .login-header img {
-      height: 48px;
-      width: auto;
+    .login-brand::after {
+      content: '';
+      position: absolute; right: -40px; bottom: -40px;
+      width: 200px; height: 200px;
+      background:
+        linear-gradient(rgba(255,255,255,.07), rgba(255,255,255,.07)) center / 66px 200px no-repeat,
+        linear-gradient(rgba(255,255,255,.07), rgba(255,255,255,.07)) center / 200px 66px no-repeat;
+    }
+    .login-brand img {
+      height: 46px; width: auto; align-self: flex-start;
       filter: brightness(0) invert(1);
     }
-    .login-header h1 {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--white);
-      text-align: center;
+    .login-brand h1 {
+      font-size: 24px; font-weight: 700; line-height: 1.25;
+      letter-spacing: -.01em;
     }
-    .login-header p {
-      font-size: 12px;
-      color: var(--blue-300);
-      text-align: center;
+    .login-brand h1 + p {
+      font-size: 14px; color: var(--blue-100); margin-top: 8px; line-height: 1.5;
     }
+    .brand-list { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-top: auto; }
+    .brand-list li { display: flex; gap: 12px; align-items: flex-start; }
+    .brand-list .ico {
+      width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+      display: grid; place-items: center;
+      background: rgba(255,255,255,.12);
+    }
+    .brand-list svg { width: 18px; height: 18px; }
+    .brand-list strong { display: block; font-size: 13px; font-weight: 600; }
+    .brand-list span { font-size: 12px; color: var(--blue-300); }
 
+    /* ── Formulario ── */
     .login-body {
-      padding: 28px 32px 32px;
+      padding: 44px 40px;
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 18px;
     }
+    .login-title h2 { font-size: 22px; font-weight: 700; color: var(--blue-900); }
+    .login-title p { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
 
     .field {
       display: flex;
@@ -85,31 +118,48 @@
       gap: 6px;
     }
     .field label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--gray-500);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+    .input-wrap { position: relative; }
+    .input-wrap > svg {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      width: 17px; height: 17px; color: var(--gray-400); pointer-events: none;
     }
     .field input {
       width: 100%;
-      padding: 10px 12px;
+      height: 44px;
+      padding: 0 44px 0 38px;
       border: 1.5px solid var(--gray-300);
       border-radius: var(--radius);
       font-size: 14px;
-      color: var(--gray-700);
+      color: var(--gray-900);
       background: var(--white);
       outline: none;
       transition: border-color .2s, box-shadow .2s;
     }
+    .field input::placeholder { color: var(--gray-400); }
+    .field input:hover { border-color: var(--gray-400); }
     .field input:focus {
       border-color: var(--blue-500);
       box-shadow: 0 0 0 3px rgba(46,120,212,.15);
     }
+    .toggle-pass {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      width: 36px; height: 36px; border-radius: 6px;
+      display: grid; place-items: center;
+      background: none; border: none; cursor: pointer;
+      color: var(--gray-500);
+    }
+    .toggle-pass:hover { color: var(--blue-700); background: var(--blue-50); }
+    .toggle-pass:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46,120,212,.35); }
+    .toggle-pass svg { width: 18px; height: 18px; }
 
     .btn-login {
       width: 100%;
-      padding: 11px;
+      height: 46px;
+      margin-top: 4px;
       background: var(--blue-700);
       color: var(--white);
       border: none;
@@ -117,14 +167,16 @@
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
-      transition: background .18s, transform .1s;
+      transition: background .18s, transform .1s, box-shadow .18s;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
+      box-shadow: 0 4px 12px rgba(28,75,130,.25);
     }
     .btn-login:hover   { background: var(--blue-900); }
     .btn-login:active  { transform: scale(.98); }
+    .btn-login:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46,120,212,.45); }
     .btn-login:disabled {
       opacity: .6;
       cursor: not-allowed;
@@ -144,8 +196,9 @@
     /* ── Error message ── */
     .error-msg {
       background: var(--red-bg);
-      color: var(--red);
-      border-radius: var(--radius);
+      color: #991B1B;
+      border-left: 3px solid var(--red);
+      border-radius: 0 var(--radius) var(--radius) 0;
       padding: 10px 14px;
       font-size: 13px;
       font-weight: 600;
@@ -154,33 +207,75 @@
     .error-msg.show { display: block; }
 
     .login-footer {
-      text-align: center;
-      font-size: 11px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-size: 11.5px;
       color: var(--gray-500);
-      padding-bottom: 4px;
+    }
+    .login-footer svg { width: 13px; height: 13px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation-duration: .01ms !important; }
+    }
+    @media (max-width: 760px) {
+      body { padding: 16px; align-items: flex-start; }
+      .login-card { grid-template-columns: 1fr; max-width: 420px; }
+      .login-brand { padding: 26px 24px; gap: 14px; }
+      .login-brand h1 { font-size: 19px; }
+      .brand-list { display: none; }
+      .login-body { padding: 28px 24px 30px; }
     }
   </style>
 </head>
 <body>
 
 <div class="login-card">
-  <div class="login-header">
+  <aside class="login-brand">
     <img src="img/logo_cmsl.png" alt="Centro Médico San Lucas">
-    <h1>Centro Médico San Lucas</h1>
-    <p>Sistema de Gestión Interna</p>
-  </div>
+    <div>
+      <h1>Centro Médico San Lucas</h1>
+      <p>Sistema de Gestión Interna</p>
+    </div>
+    <ul class="brand-list">
+      <li>
+        <span class="ico">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </span>
+        <div><strong>Patologías</strong><span>Seguimiento de estudios y resultados</span></div>
+      </li>
+      <li>
+        <span class="ico">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </span>
+        <div><strong>Bitácora de Expedientes</strong><span>Rastreo entre departamentos</span></div>
+      </li>
+    </ul>
+  </aside>
 
   <div class="login-body">
-    <div id="error-msg" class="error-msg"></div>
+    <div class="login-title">
+      <h2>Iniciar sesión</h2>
+      <p>Ingresa con tu usuario del sistema</p>
+    </div>
+
+    <div id="error-msg" class="error-msg" role="alert"></div>
 
     <div class="field">
       <label for="usuario">Usuario</label>
-      <input type="text" id="usuario" placeholder="Ingresa tu usuario" autocomplete="username" autofocus>
+      <div class="input-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        <input type="text" id="usuario" placeholder="Ingresa tu usuario" autocomplete="username" autofocus>
+      </div>
     </div>
 
     <div class="field">
       <label for="clave">Contraseña</label>
-      <input type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
+      <div class="input-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 118 0v4"/></svg>
+        <input type="password" id="clave" placeholder="••••••••" autocomplete="current-password">
+        <button type="button" class="toggle-pass" id="toggle-pass" aria-label="Mostrar contraseña" aria-pressed="false">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
     </div>
 
     <button class="btn-login" id="btn-login">
@@ -188,7 +283,10 @@
       <span id="btn-text">Iniciar sesión</span>
     </button>
 
-    <p class="login-footer">Acceso restringido al personal autorizado</p>
+    <p class="login-footer">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/></svg>
+      Acceso restringido al personal autorizado
+    </p>
   </div>
 </div>
 
@@ -206,6 +304,7 @@
   const spinner   = document.getElementById('spinner');
   const btnText   = document.getElementById('btn-text');
   const errorMsg  = document.getElementById('error-msg');
+  const togglePass = document.getElementById('toggle-pass');
 
   function setLoading(on) {
     btnLogin.disabled    = on;
@@ -244,6 +343,13 @@
       claveEl.focus();
     }
   }
+
+  togglePass.addEventListener('click', () => {
+    const mostrar = claveEl.type === 'password';
+    claveEl.type = mostrar ? 'text' : 'password';
+    togglePass.setAttribute('aria-pressed', String(mostrar));
+    togglePass.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
 
   btnLogin.addEventListener('click', submit);
   claveEl.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });

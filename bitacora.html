@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Centro Médico San Lucas — Bitácora de Expedientes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/bitacora.css">
   <!-- La página arranca oculta y js/bitacora/main.js la destapa solo si el
@@ -44,6 +47,14 @@
 <div class="app-body" id="app-body">
   <main>
 
+    <div class="page-head">
+      <div>
+        <h1>Bitácora de expedientes</h1>
+        <p>Ubicación de cada expediente clínico, transferencias pendientes de acuse y tiempo en cada departamento.</p>
+      </div>
+    </div>
+
+    <section class="controls-card" aria-label="Búsqueda y filtros">
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
@@ -121,14 +132,15 @@
       </button>
       <span id="bit-sync" class="bit-sync"></span>
     </div>
+    </section>
 
     <!-- Stats -->
     <div id="stats-bar" style="display:none">
-      <div class="stat-chip">Mostrando: <strong id="stat-visibles">0</strong></div>
-      <div class="stat-chip">En tránsito: <strong id="stat-transito">0</strong></div>
-      <div class="stat-chip">Detenidos: <strong id="stat-detenidos">0</strong></div>
-      <div class="stat-chip" id="stat-chip-mios" style="display:none">
-        En <span id="stat-mi-depto">—</span>: <strong id="stat-mios">0</strong>
+      <div class="stat-chip"><span>Mostrando</span><strong id="stat-visibles">0</strong></div>
+      <div class="stat-chip stat-warn"><span>En tránsito</span><strong id="stat-transito">0</strong></div>
+      <div class="stat-chip stat-danger"><span>Detenidos</span><strong id="stat-detenidos">0</strong></div>
+      <div class="stat-chip stat-ok" id="stat-chip-mios" style="display:none">
+        <span>En <span id="stat-mi-depto">—</span></span><strong id="stat-mios">0</strong>
       </div>
     </div>
 

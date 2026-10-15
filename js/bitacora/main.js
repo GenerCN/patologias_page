@@ -55,7 +55,7 @@ function conectarFormCancelacion() {
   };
 }
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 30;   // registros por página; el resto se navega con la paginación
 
 const session = requireAuth();
 const usuario = session ? session.usuario : '';

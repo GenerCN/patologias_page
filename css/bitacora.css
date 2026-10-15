@@ -5,9 +5,11 @@
 .bit-filtros-extra {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   margin-bottom: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gray-100);
 }
 #filtro-depto {
-  padding: 6px 11px;
+  height: 34px; padding: 0 11px; min-width: 200px;
   border: 1.5px solid var(--gray-300);
   border-radius: var(--radius);
   font-size: 13px; color: var(--gray-700);
@@ -17,10 +19,10 @@
 #filtro-depto:focus { border-color: var(--blue-500); }
 .bit-check {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--gray-500); cursor: pointer;
+  font-size: 12.5px; color: var(--gray-600); cursor: pointer;
   user-select: none;
 }
-.bit-check input { accent-color: var(--blue-700); cursor: pointer; }
+.bit-check input { accent-color: var(--blue-700); cursor: pointer; width: 15px; height: 15px; }
 
 .bit-sep {
   width: 1px; height: 18px;
@@ -29,9 +31,9 @@
 }
 .bit-refrescar {
   display: grid; place-items: center;
-  width: 26px; height: 26px;
+  width: 32px; height: 32px;
   border: 1.5px solid var(--gray-300);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--white); color: var(--gray-500);
   cursor: pointer;
   transition: color .15s, border-color .15s, background .15s;
@@ -51,17 +53,20 @@
   padding-right: 0 !important;
   text-align: center;
 }
-.bit-col-sel input { accent-color: var(--blue-500); cursor: pointer; }
-thead .bit-col-sel input { accent-color: var(--blue-300); }
+.bit-col-sel input { accent-color: var(--blue-700); cursor: pointer; width: 15px; height: 15px; }
 
 /* Barra de acciones en lote */
 .bit-lote {
-  background: var(--blue-900);
-  border-radius: 10px;
+  background: linear-gradient(90deg, var(--blue-900), var(--blue-800));
+  border-radius: var(--radius-lg);
   padding: 12px 14px;
   margin-bottom: 14px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
+  animation: bit-lote-in .2s ease-out;
 }
+@keyframes bit-lote-in { from { opacity: 0; transform: translateY(-6px); } }
+.bit-lote .btn { height: 36px; }
+.bit-lote .btn-outline { border-color: transparent; }
 .bit-lote-fila {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
@@ -70,7 +75,7 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 }
 .bit-lote-n strong { color: var(--white); font-size: 15px; }
 #bit-lote-destino {
-  padding: 7px 10px;
+  height: 36px; padding: 0 10px;
   border: 1.5px solid transparent;
   border-radius: var(--radius);
   font-size: 13px; background: var(--white); color: var(--gray-700);
@@ -87,10 +92,14 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 .bit-lote-limpiar:hover { color: var(--white); }
 .bit-lote-obs {
   width: 100%; margin-top: 10px;
-  padding: 8px 11px;
-  border: 1.5px solid transparent; border-radius: var(--radius);
+  height: 36px; padding: 0 11px;
+  border: 1.5px solid rgba(255,255,255,.15); border-radius: var(--radius);
+  background: rgba(255,255,255,.08); color: var(--white);
   font-size: 13px; outline: none;
+  transition: background .15s, border-color .15s;
 }
+.bit-lote-obs::placeholder { color: var(--blue-300); }
+.bit-lote-obs:focus { background: var(--white); color: var(--gray-900); border-color: var(--blue-300); }
 .bit-lote-lista { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 4px; }
 
 .bit-fallidos { list-style: none; }
@@ -169,10 +178,15 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 
 /* Estado en tabla */
 .bit-badge {
-  display: inline-block;
-  padding: 2px 9px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 10px 2px 8px; border-radius: 20px;
   font-size: 11px; font-weight: 600; white-space: nowrap;
 }
+.bit-badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+.bit-badge-transito::before { animation: pulse 1.6s infinite; }
 .bit-badge-activo    { background: var(--green-bg);  color: var(--green); }
 .bit-badge-transito  { background: var(--yellow-bg); color: var(--yellow); }
 .bit-badge-archivo   { background: #EDE9FE;          color: #6D28D9; }
@@ -184,8 +198,9 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
 .bit-depto-destino { color: var(--yellow); }
 .bit-flecha { color: var(--gray-300); font-weight: 700; }
 
-.bit-row-alerta { background: #FFFBEB; }
+.bit-row-alerta { background: #FFF8F1; }
 .bit-row-alerta:hover { background: #FEF3C7; }
+.bit-row-alerta td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .bit-tiempo-alerta { color: var(--red); font-weight: 600; }
 .bit-alerta-icono { color: var(--red); }
 
@@ -349,7 +364,7 @@ thead .bit-col-sel input { accent-color: var(--blue-300); }
   background: var(--white);
   border: 2.5px solid var(--gray-300);
 }
-.bit-paso-ok        .bit-paso-punto { border-color: var(--green); }
+.bit-paso-ok        .bit-paso-punto { border-color: var(--green); background: var(--green-bg); }
 .bit-paso-transito  .bit-paso-punto { border-color: var(--yellow); background: var(--yellow-bg); }
 .bit-paso-cancelado .bit-paso-punto { border-color: var(--red); }
 .bit-paso-archivo   .bit-paso-punto { border-color: #6D28D9; background: #EDE9FE; }

@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Centro Médico San Lucas — Patologías</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="css/styles.css">
   <!-- Arranca oculta: js/main.js la destapa solo si el usuario tiene acceso
        a Patologías, para que los departamentos clínicos no alcancen a verla. -->
@@ -41,6 +44,14 @@
 <div class="app-body" id="app-body">
   <main>
 
+    <div class="page-head">
+      <div>
+        <h1>Seguimiento de patologías</h1>
+        <p>Entrega de muestras, recepción de resultados, revisión médica, envío al paciente y pago.</p>
+      </div>
+    </div>
+
+    <section class="controls-card" aria-label="Búsqueda y filtros">
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
@@ -96,10 +107,11 @@
         Pendientes de pago
       </button>
     </div>
+    </section>
 
     <!-- Stats -->
     <div id="stats-bar" style="display:none">
-      <div class="stat-chip">Registros encontrados: <strong id="stat-count">0</strong></div>
+      <div class="stat-chip"><span>Registros encontrados</span><strong id="stat-count">0</strong></div>
     </div>
 
     <!-- Table card -->
