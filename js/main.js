@@ -1,5 +1,5 @@
 import { FIELDS } from './config.js';
-import { setStatus, showToast, normalizeRecord } from './utils.js';
+import { setStatus, showToast, normalizeRecord, resultadoEnviado } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable, renderPagination } from './table.js';
 import { openPanel, openNewPanel, closePanel, collectPanelValues, getActiveRecord, isNewRecord } from './panel.js';
@@ -22,7 +22,8 @@ let currentPage  = 1;
 
 const FILTERS = {
   'not-arrived':     r => !r.patologia_fisica,
-  'pending-send':    r => Boolean(r.patologia_fisica) && !r.enviado_paciente,
+  // Con cita, la fecha de cita ya cuenta como envío (ver resultadoEnviado).
+  'pending-send':    r => Boolean(r.patologia_fisica) && !resultadoEnviado(r),
   'pending-payment': r => Boolean(r.patologia_fisica) && !r.fecha_pago,
 };
 

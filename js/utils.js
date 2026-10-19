@@ -42,6 +42,22 @@ export function fmtDateShort(val) {
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
+const SI = ['si', 'sí', 'yes', 'true', '1', 'x'];
+
+export function requiereCita(rec) {
+  return SI.includes(String(rec.requiere_cita || '').trim().toLowerCase());
+}
+
+/**
+ * El resultado cuenta como enviado al paciente:
+ *  - con cita: en cuanto tiene fecha de cita (o fecha de envío);
+ *  - sin cita: solo con la fecha de envío a paciente.
+ */
+export function resultadoEnviado(rec) {
+  if (rec.enviado_paciente) return true;
+  return requiereCita(rec) && Boolean(rec.fecha_cita);
+}
+
 export const DIAS_LIMITE = 10;   // días naturales entre entrega y resultados digitales
 
 /**

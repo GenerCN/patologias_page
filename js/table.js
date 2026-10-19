@@ -1,14 +1,22 @@
-import { fmtDateShort, fmtMoney, diasBadge, escHtml } from './utils.js';
+import { fmtDateShort, fmtMoney, diasBadge, escHtml, requiereCita, resultadoEnviado } from './utils.js';
 
 const COLSPAN = 12;
 
 /* "Requiere cita" y "Fecha cita" en una sola celda. */
 function celdaCita(rec) {
-  const v = String(rec.requiere_cita || '').trim().toLowerCase();
-  if (!v) return '<span class="muted">—</span>';
-  if (!['si', 'sí', 'yes', 'true', '1', 'x'].includes(v)) return '<span class="pill pill-no">No</span>';
+  if (!String(rec.requiere_cita || '').trim()) return '<span class="muted">—</span>';
+  if (!requiereCita(rec)) return '<span class="pill pill-no">No</span>';
   const f = fmtDateShort(rec.fecha_cita);
   return `<span class="pill pill-yes">Sí</span>${f ? ` <span class="cita-fecha">${f}</span>` : ''}`;
+}
+
+/* Con cita agendada el resultado ya cuenta como enviado aunque no haya fecha de envío. */
+function celdaEnvio(rec) {
+  if (rec.enviado_paciente) return fmtDateShort(rec.enviado_paciente);
+  if (resultadoEnviado(rec)) {
+    return `<span class="pill pill-yes" title="Requiere cita y ya tiene fecha de cita (${fmtDateShort(rec.fecha_cita)}): el resultado cuenta como enviado">Vía cita</span>`;
+  }
+  return '<span class="muted">—</span>';
 }
 
 export function setTableLoading() {
@@ -61,7 +69,7 @@ export function renderTable(records, onRowClick) {
       <td>${fecha(rec.patologia_fisica)}</td>
       <td>${fecha(rec.fecha_revision_medico)}</td>
       <td>${celdaCita(rec)}</td>
-      <td>${fecha(rec.enviado_paciente)}</td>
+      <td>${celdaEnvio(rec)}</td>
       <td class="col-monto">${fmtMoney(rec.monto) || '<span class="muted">—</span>'}</td>
       <td>${fecha(rec.fecha_pago)}</td>
     </tr>`;
