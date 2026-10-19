@@ -166,8 +166,16 @@
         </svg>
       </button>
     </div>
+    <div class="panel-alert" id="panel-alert" role="alert" hidden></div>
     <div class="panel-body"></div>
-    <div class="panel-footer">
+    <div class="panel-confirm" id="panel-confirm" hidden>
+      <p>Tienes cambios sin guardar.</p>
+      <div class="panel-confirm-actions">
+        <button type="button" class="btn btn-cancel" id="btn-keep-editing">Seguir editando</button>
+        <button type="button" class="btn btn-discard" id="btn-discard-changes">Descartar cambios</button>
+      </div>
+    </div>
+    <div class="panel-footer" id="panel-footer">
       <button class="btn btn-cancel" id="btn-cancel-edit">Cancelar</button>
       <button class="btn btn-save" id="btn-save-edit">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px">

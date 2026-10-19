@@ -566,6 +566,54 @@ td:has(> .state-box) { padding: 0; max-width: none; }
 .btn-save:hover { background: var(--blue-900); }
 .btn-cancel { background: var(--white); color: var(--gray-700); border: 1px solid var(--border-strong); }
 .btn-cancel:hover { background: var(--gray-100); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }
+.panel-footer[hidden], .panel-confirm[hidden], .panel-alert[hidden] { display: none; }
+
+/* Guardando: el formulario queda bloqueado hasta que el servidor confirma */
+#side-panel.is-busy .panel-body { pointer-events: none; opacity: .65; transition: opacity .2s; }
+.btn-spinner {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,.45);
+  border-top-color: var(--white);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+/* Error de guardado: los datos siguen en el formulario */
+.panel-alert {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin: 14px 20px 0;
+  padding: 12px 14px;
+  background: var(--red-bg);
+  border: 1px solid #FCA5A5;
+  border-radius: var(--radius);
+  color: #7F1D1D;
+  font-size: 13px; line-height: 1.45;
+  flex-shrink: 0;
+}
+.panel-alert p { flex: 1; min-width: 0; }
+.btn-retry {
+  height: 34px; padding: 0 14px; flex-shrink: 0;
+  background: var(--white); color: #991B1B;
+  border: 1px solid #FCA5A5;
+}
+.btn-retry:hover { background: #FFF5F5; }
+
+/* Confirmación antes de descartar cambios */
+.panel-confirm {
+  padding: 14px 20px;
+  border-top: 1px solid #FDE68A;
+  background: var(--yellow-bg);
+  flex-shrink: 0;
+}
+.panel-confirm p {
+  font-size: 13px; font-weight: 600; color: #78350F;
+  margin-bottom: 10px;
+}
+.panel-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-discard { background: var(--white); color: #B91C1C; border: 1px solid #FCA5A5; }
+.btn-discard:hover { background: var(--red-bg); }
 
 /* ── Toast ───────────────────────────────────────── */
 #toast {

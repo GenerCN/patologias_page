@@ -5,9 +5,109 @@ import { getEditableSections } from './auth.js';
 let activeRow = null;
 let activeRecord = null;
 let isNew = false;
+let baseline = {};          // valores del formulario al abrirlo (o tras guardarlos)
+let busy = false;           // hay un guardado en curso
+let pendingAction = null;   // lo que se hará si el usuario descarta los cambios
 
 export function getActiveRecord() { return activeRecord; }
 export function isNewRecord() { return isNew; }
+export function isPanelOpen() { return document.getElementById('side-panel').classList.contains('open'); }
+export function isPanelBusy() { return busy; }
+
+/* Valores actuales de los campos editables, leídos del formulario. */
+function formValues() {
+  const vals = {};
+  FIELDS.forEach(f => {
+    const el = document.getElementById('fe-' + f.key);
+    if (el && f.type !== 'hidden') vals[f.key] = el.value;
+  });
+  return vals;
+}
+
+function snapshotBaseline() { baseline = formValues(); }
+
+/* Campos cuyo valor cambió desde que se abrió el panel (o desde el último guardado). */
+export function getChangedKeys() {
+  if (!isPanelOpen()) return [];
+  const now = formValues();
+  return Object.keys(now).filter(k => String(now[k] ?? '') !== String(baseline[k] ?? ''));
+}
+
+export function isDirty() { return getChangedKeys().length > 0; }
+
+/* Un campo ya quedó guardado: deja de contar como cambio pendiente. */
+export function markFieldSaved(key, value) {
+  baseline[key] = value;
+  if (activeRecord) activeRecord[key] = value;
+}
+
+export function fieldLabel(key) {
+  return FIELDS.find(f => f.key === key)?.label || key;
+}
+
+/* Bloquea el panel mientras guarda; el botón muestra el progreso. */
+export function setPanelBusy(on, label = '') {
+  busy = on;
+  const panel = document.getElementById('side-panel');
+  panel.classList.toggle('is-busy', on);
+  panel.querySelector('.panel-body').setAttribute('aria-busy', on ? 'true' : 'false');
+  ['btn-save-edit', 'btn-cancel-edit', 'btn-close-panel'].forEach(id => {
+    document.getElementById(id).disabled = on;
+  });
+  const save = document.getElementById('btn-save-edit');
+  if (on) {
+    save.dataset.label = save.dataset.label || save.innerHTML;
+    save.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span>${escHtml(label)}`;
+  } else if (save.dataset.label) {
+    save.innerHTML = save.dataset.label;
+    delete save.dataset.label;
+  }
+}
+
+export function showPanelAlert(message, onRetry) {
+  const box = document.getElementById('panel-alert');
+  box.innerHTML = `<p>${escHtml(message)}</p>`
+    + (onRetry ? '<button type="button" class="btn btn-retry" id="btn-retry-save">Reintentar</button>' : '');
+  box.hidden = false;
+  if (onRetry) document.getElementById('btn-retry-save').addEventListener('click', onRetry, { once: true });
+}
+
+export function clearPanelAlert() {
+  const box = document.getElementById('panel-alert');
+  box.hidden = true;
+  box.innerHTML = '';
+}
+
+function showConfirm(show) {
+  document.getElementById('panel-confirm').hidden = !show;
+  document.getElementById('panel-footer').hidden = show;
+  if (show) document.getElementById('btn-keep-editing').focus();
+}
+
+/**
+ * Cierra el panel o cambia de registro sin perder trabajo: si hay cambios
+ * sin guardar, primero pide confirmación en el pie del panel.
+ */
+export function requestClose(action = closePanel) {
+  if (busy) return;
+  if (!isPanelOpen() || !isDirty()) { action(); return; }
+  pendingAction = action;
+  showConfirm(true);
+}
+
+document.getElementById('btn-keep-editing').addEventListener('click', () => {
+  pendingAction = null;
+  showConfirm(false);
+  const first = getChangedKeys()[0];
+  document.getElementById('fe-' + first)?.focus();
+});
+
+document.getElementById('btn-discard-changes').addEventListener('click', () => {
+  const action = pendingAction;
+  pendingAction = null;
+  showConfirm(false);
+  if (action) action();
+});
 
 const LOCK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;vertical-align:middle;margin-left:5px;opacity:.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
 
@@ -114,6 +214,7 @@ export function openPanel(record, tr) {
     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M5 13l4 4L19 7"/></svg> Guardar cambios`;
 
   buildPanelBody(record, true);
+  resetPanelState();
 
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('app-body').classList.add('panel-open');
@@ -131,12 +232,24 @@ export function openNewPanel() {
     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M12 4v16m8-8H4"/></svg> Crear registro`;
 
   buildPanelBody({});
+  resetPanelState();
 
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('app-body').classList.add('panel-open');
 }
 
+function resetPanelState() {
+  clearPanelAlert();
+  showConfirm(false);
+  pendingAction = null;
+  snapshotBaseline();
+}
+
 export function closePanel() {
+  clearPanelAlert();
+  showConfirm(false);
+  pendingAction = null;
+  baseline = {};
   document.getElementById('side-panel').classList.remove('open');
   document.getElementById('app-body').classList.remove('panel-open');
   if (activeRow) { activeRow.classList.remove('active'); activeRow = null; }
