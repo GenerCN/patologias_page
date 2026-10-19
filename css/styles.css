@@ -302,7 +302,9 @@ main {
 /* Con altura máxima el scroll es vertical también, así el encabezado queda fijo */
 .table-scroll {
   overflow: auto;
-  max-height: calc(100vh - var(--header-h) - 120px);
+  position: relative;   /* contiene los textos ocultos (sr-only) de las filas fuera de vista */
+  /* --tabla-top lo calcula main.js: la tabla llega justo al borde inferior de la ventana */
+  max-height: calc(100vh - var(--tabla-top, 160px) - 26px);
   min-height: 240px;
 }
 .table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -378,7 +380,7 @@ tbody tr:has(.state-box) { cursor: default; background: none; }
 .tabla-patologias .col-id small { display: block; font-size: 11px; color: var(--gray-500); }
 
 .tabla-patologias .col-nombre {
-  max-width: 190px;
+  max-width: 160px;
   overflow: hidden; text-overflow: ellipsis;
   font-weight: 500; color: var(--gray-900);
 }
@@ -389,6 +391,7 @@ tbody tr:has(.state-box) { cursor: default; background: none; }
 
 /* Días entre la entrega y los resultados digitales */
 .dias {
+  position: relative;
   display: inline-flex; align-items: center; gap: 5px;
   padding: 2px 9px 2px 6px; border-radius: 20px;
   border: 1px solid transparent;
@@ -697,3 +700,63 @@ td:has(> .state-box) { padding: 0; max-width: none; }
 }
 .dias-panel .dias-ico { width: 15px; height: 15px; }
 .state-box .state-action { margin-top: 16px; }
+
+/* ── Etapas del estudio ───────────────────────────── */
+/* Barra de etapas: reemplaza la tarjeta de conteo; cada etapa filtra la tabla */
+#stats-bar.etapas-bar {
+  gap: 4px; flex-wrap: wrap;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.etapa-filtro {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  min-height: 36px; padding: 7px 12px;
+  background: none; border: none; border-radius: 8px;
+  font-size: 12.5px; font-weight: 600; color: var(--gray-600);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.etapa-filtro strong {
+  font-size: 15px; font-weight: 700; color: var(--blue-900);
+  font-variant-numeric: tabular-nums;
+}
+.etapa-filtro:hover { background: var(--blue-50); color: var(--blue-700); }
+.etapa-filtro.vacia, .etapa-filtro.vacia strong { color: var(--gray-500); font-weight: 500; }
+.etapa-filtro.active, .etapa-filtro.active:hover { background: var(--blue-700); color: var(--white); }
+.etapa-filtro.active strong { color: var(--white); }
+.etapa-filtro:first-child { padding-right: 16px; margin-right: 4px; border-right: 1px solid var(--border); border-radius: 8px 0 0 8px; }
+.etapa-filtro.active:first-child { border-radius: 8px; }
+
+/* Pastilla de etapa en la tabla:
+   azul = esperando al laboratorio · ámbar = le toca al personal · verde = completo */
+.etapa {
+  display: inline-block;
+  padding: 2px 9px; border-radius: 6px;
+  font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.etapa-sin-entrega { color: var(--gray-600); border: 1px dashed var(--gray-300); }
+.etapa-digital, .etapa-fisico { background: var(--blue-100); color: var(--blue-700); }
+.etapa-revision, .etapa-envio { background: var(--yellow-bg); color: #92400E; }
+.etapa-completo { background: var(--green-bg); color: var(--green); }
+.etapa-cobro {
+  display: block; margin-top: 3px;
+  font-size: 11px; font-weight: 600; color: var(--gray-600);
+  white-space: nowrap;
+}
+.tabla-patologias .col-etapa { line-height: 1.2; }
+
+/* Tipo de búsqueda detectado (folio / expediente / nombre) */
+.search-wrap #search-input { padding-right: 104px; }
+.search-kind {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  padding: 2px 8px; border-radius: 6px;
+  background: var(--blue-100); color: var(--blue-700);
+  font-size: 11px; font-weight: 600; pointer-events: none;
+}
+.search-kind:empty { display: none; }
+/* Con texto, el ✕ nativo del buscador se recorre para no tapar la etiqueta */
+#search-input::-webkit-search-cancel-button { margin-right: 84px; cursor: pointer; }

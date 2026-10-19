@@ -1,6 +1,15 @@
-import { fmtDateShort, fmtMoney, diasBadge, escHtml, requiereCita, resultadoEnviado, nivelTexto } from './utils.js';
+import { fmtDateShort, fmtMoney, diasBadge, escHtml, requiereCita, resultadoEnviado, nivelTexto, etapaDe, porCobrar } from './utils.js';
 
-const COLSPAN = 12;
+const COLSPAN = 13;
+
+/* Siguiente paso del estudio; el cobro pendiente va como marca aparte. */
+function celdaEtapa(rec) {
+  const e = etapaDe(rec);
+  const cobro = porCobrar(rec)
+    ? '<span class="etapa-cobro" title="Resultado físico recibido y sin fecha de pago">$ por cobrar</span>'
+    : '';
+  return `<span class="etapa etapa-${e.key}" title="${e.hint}">${e.label}</span>${cobro}`;
+}
 
 /* "Requiere cita" y "Fecha cita" en una sola celda. */
 function celdaCita(rec) {
@@ -67,6 +76,7 @@ export function renderTable(records, onRowClick, empty = { message: 'No hay regi
     <tr data-idx="${i}">
       <td class="col-id"><span class="folio">${escHtml(rec.folio || '—')}</span><small>${escHtml(rec.expediente || '—')}</small></td>
       <td class="col-nombre" title="${rec.nombre_paciente ? nombre : ''}">${nombre}</td>
+      <td class="col-etapa">${celdaEtapa(rec)}</td>
       <td class="col-nivel">${escHtml(nivelTexto(rec.nivel_patologia) || '—')}</td>
       <td>${fecha(rec.fecha_entrega)}</td>
       <td>${fecha(rec.fecha_recepcion)}</td>

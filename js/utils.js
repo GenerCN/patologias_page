@@ -23,13 +23,6 @@ export function showToast(msg, isError = false) {
   t._timer = setTimeout(() => { t.className = ''; }, 3000);
 }
 
-export function fmtDate(val) {
-  if (!val) return '';
-  const d = new Date(val);
-  if (isNaN(d)) return val;
-  return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
 /* Convierte el valor de la hoja en una fecha local a medianoche.
    "2026-10-12" y "12/10/2026" se arman a mano: new Date() leería el primero
    como UTC (un día antes en México) y no entiende el segundo. */
@@ -66,6 +59,32 @@ export function requiereCita(rec) {
 export function resultadoEnviado(rec) {
   if (rec.enviado_paciente) return true;
   return requiereCita(rec) && Boolean(rec.fecha_cita);
+}
+
+/* Etapas del estudio, en orden. El cobro corre por separado (ver porCobrar):
+   puede hacerse en cualquier momento después del resultado físico. */
+export const ETAPAS = [
+  { key: 'sin-entrega', label: 'Sin entrega',    hint: 'Falta registrar la fecha de entrega' },
+  { key: 'digital',     label: 'Espera digital', hint: 'Esperando resultado digital del laboratorio' },
+  { key: 'fisico',      label: 'Espera físico',  hint: 'Resultado digital recibido; falta el físico' },
+  { key: 'revision',    label: 'Por revisar',    hint: 'Falta la revisión del médico' },
+  { key: 'envio',       label: 'Por enviar',     hint: 'Revisado; falta enviarlo al paciente o agendar cita' },
+  { key: 'completo',    label: 'Completo',       hint: 'Resultado enviado al paciente (o con cita agendada)' },
+];
+
+export function etapaDe(rec) {
+  const key = !rec.fecha_entrega          ? 'sin-entrega'
+            : !rec.fecha_recepcion        ? 'digital'
+            : !rec.patologia_fisica       ? 'fisico'
+            : !rec.fecha_revision_medico  ? 'revision'
+            : !resultadoEnviado(rec)      ? 'envio'
+            : 'completo';
+  return ETAPAS.find(e => e.key === key);
+}
+
+/** Igual que el filtro "Pendientes de pago": resultado físico recibido y sin fecha de pago. */
+export function porCobrar(rec) {
+  return Boolean(rec.patologia_fisica) && !rec.fecha_pago;
 }
 
 export const DIAS_LIMITE = 10;   // días naturales entre entrega y resultados digitales
@@ -130,14 +149,6 @@ export function fmtMoney(val) {
   const n = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
   if (isNaN(n)) return val;
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2 });
-}
-
-export function pill(val, trueLabel, falseLabel) {
-  if (!val || String(val).trim() === '') return '<span class="pill pill-no">—</span>';
-  const v   = String(val).toLowerCase();
-  const yes = ['si', 'sí', 'yes', 'true', '1', 'x'];
-  if (yes.includes(v)) return `<span class="pill pill-yes">${trueLabel || 'Sí'}</span>`;
-  return `<span class="pill pill-no">${falseLabel || 'No'}</span>`;
 }
 
 export function escHtml(s) {

@@ -1,4 +1,4 @@
-import { setStatus, showToast, normalizeRecord, resultadoEnviado, diasRecepcion, escHtml, plural } from './utils.js';
+import { setStatus, showToast, normalizeRecord, resultadoEnviado, diasRecepcion, escHtml, plural, ETAPAS, etapaDe } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable, renderPagination } from './table.js';
 import {
@@ -34,6 +34,7 @@ const FILTERS = {
 
 let sortByDias = false;   // false: por folio (descendente); true: más días primero
 let lastSearch = null;    // { type, query } de la última búsqueda; null si se cargó todo
+let stageFilter = null;   // clave de ETAPAS seleccionada en la barra de etapas; se combina con los chips
 
 const FILTER_NAMES = {
   'not-arrived':     'Sin resultado físico',
@@ -44,6 +45,15 @@ const FILTER_NAMES = {
 
 /* Qué decir cuando la tabla queda vacía, según la causa. */
 function emptyState() {
+  if (stageFilter) {
+    const etapa = ETAPAS.find(e => e.key === stageFilter).label;
+    return {
+      message: activeFilter
+        ? `No hay registros en «${etapa}» con el filtro «${FILTER_NAMES[activeFilter]}».`
+        : `No hay registros en «${etapa}».`,
+      action: { label: 'Ver todas las etapas', onClick: () => { stageFilter = null; currentPage = 1; renderView(); } },
+    };
+  }
   if (activeFilter) {
     return {
       message: `No hay registros en «${FILTER_NAMES[activeFilter]}».`,
@@ -88,8 +98,26 @@ function updateFilterUI() {
   });
 }
 
+/* Barra de etapas: el conteo respeta el chip activo; pulsar una etapa filtra la tabla. */
+function renderStageBar(base) {
+  const counts = Object.fromEntries(ETAPAS.map(e => [e.key, 0]));
+  base.forEach(r => { counts[etapaDe(r).key]++; });
+  const boton = (key, label, n, hint) => {
+    const on = stageFilter === key;
+    return `<button type="button" class="etapa-filtro${on ? ' active' : ''}${n === 0 ? ' vacia' : ''}" data-etapa="${key ?? ''}" aria-pressed="${on}" title="${hint}">`
+      + `<span>${label}</span><strong>${n}</strong></button>`;
+  };
+  const bar = document.getElementById('stats-bar');
+  bar.innerHTML = boton(null, 'Todos', base.length, 'Todas las etapas')
+    + ETAPAS.map(e => boton(e.key, e.label, counts[e.key], e.hint)).join('');
+  bar.style.display = 'flex';
+}
+
 function renderView() {
-  const filtered    = applyFilter(allRecords).slice().sort(sortByDias ? compareDiasDesc : compareFolioDesc);
+  const base        = applyFilter(allRecords);
+  renderStageBar(base);
+  const filtered    = (stageFilter ? base.filter(r => etapaDe(r).key === stageFilter) : base)
+    .slice().sort(sortByDias ? compareDiasDesc : compareFolioDesc);
   const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   currentPage       = Math.min(currentPage, totalPages);
   const start       = (currentPage - 1) * PAGE_SIZE;
@@ -101,10 +129,19 @@ function renderView() {
     totalPages,
     onPageChange: p => { currentPage = p; renderView(); }
   });
-
-  document.getElementById('stats-bar').style.display = 'flex';
-  document.getElementById('stat-count').textContent  = filtered.length;
+  ajustarAlturaTabla();
 }
+
+/* La tabla ocupa justo el alto que queda en la ventana (debajo de los controles y,
+   si hay, encima de la paginación): así solo se desplaza la tabla, nunca la página. */
+function ajustarAlturaTabla() {
+  const scroll = document.querySelector('.table-scroll');
+  const pag = document.getElementById('pagination');
+  const top = scroll.getBoundingClientRect().top + window.scrollY;
+  const extra = pag.style.display !== 'none' ? pag.offsetHeight + 16 : 0;
+  document.documentElement.style.setProperty('--tabla-top', `${Math.round(top + extra)}px`);
+}
+window.addEventListener('resize', ajustarAlturaTabla);
 
 /* Traduce errores técnicos a un mensaje que el personal pueda resolver. */
 function mensajeError(e) {
@@ -155,12 +192,17 @@ async function loadSearch(type, query, { keepPage = false } = {}) {
   }
 }
 
+/* Folio: números con guion (2024-0148); expediente: solo números; si lleva letras, nombre. */
+function tipoBusqueda(q) {
+  const s = q.replace(/\s+/g, '');
+  if (/^\d+$/.test(s)) return 'expediente';
+  if (s.includes('-') && /^[A-Za-z]*-?[\d-]*\d$/.test(s)) return 'folio';
+  return 'nombre';
+}
+const TIPO_TEXTO = { folio: 'Folio', expediente: 'Expediente', nombre: 'Nombre' };
+
 function recargarVista() {
-  const q = document.getElementById('search-input').value.trim();
-  if (q) {
-    const type = document.querySelector('input[name=stype]:checked').value;
-    return loadSearch(type, q, { keepPage: true });
-  }
+  if (lastSearch) return loadSearch(lastSearch.type, lastSearch.query, { keepPage: true });
   return loadAll({ keepPage: true });
 }
 
@@ -251,7 +293,12 @@ async function createRecord() {
 }
 
 /* ── Event listeners ─────────────────────────────── */
-document.getElementById('btn-all').addEventListener('click', () => loadAll());
+/* Actualizar: con texto en el buscador repite esa búsqueda; vacío, recarga la lista completa. */
+document.getElementById('btn-all').addEventListener('click', () => {
+  const q = document.getElementById('search-input').value.trim();
+  if (q) loadSearch(tipoBusqueda(q), q, { keepPage: true });
+  else loadAll({ keepPage: !lastSearch });
+});
 document.getElementById('btn-new').addEventListener('click', () => requestClose(openNewPanel));
 
 document.getElementById('btn-search').addEventListener('click', () => {
@@ -261,12 +308,21 @@ document.getElementById('btn-search').addEventListener('click', () => {
     showToast('Escribe un folio, expediente o nombre para buscar.', true);
     return;
   }
-  const type = document.querySelector('input[name=stype]:checked').value;
-  loadSearch(type, q);
+  loadSearch(tipoBusqueda(q), q);
 });
 
-document.getElementById('search-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('btn-search').click();
+const searchInput = document.getElementById('search-input');
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-search').click(); }
+});
+/* Muestra qué tipo de búsqueda se detectó mientras se escribe. */
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim();
+  document.getElementById('search-kind').textContent = q ? TIPO_TEXTO[tipoBusqueda(q)] : '';
+});
+/* Borrar el buscador (su botón ✕) regresa a la lista completa. */
+searchInput.addEventListener('search', () => {
+  if (!searchInput.value.trim() && lastSearch) loadAll();
 });
 
 document.getElementById('btn-close-panel').addEventListener('click', () => requestClose());
@@ -309,17 +365,18 @@ document.getElementById('sort-dias').addEventListener('click', () => {
   if (allRecords.length) renderView();
 });
 
+document.getElementById('stats-bar').addEventListener('click', e => {
+  const btn = e.target.closest('.etapa-filtro');
+  if (!btn) return;
+  const key = btn.dataset.etapa || null;
+  stageFilter = stageFilter === key ? null : key;
+  currentPage = 1;
+  renderView();
+});
+
 /* ── Init ────────────────────────────────────────── */
 if (!canCreateRecord()) {
   document.getElementById('btn-new').style.display = 'none';
 }
-/* El ejemplo del buscador sigue al tipo de búsqueda elegido. */
-const SEARCH_HINTS = { folio: 'Ej. PAT-0148', expediente: 'Ej. EXP-10234', nombre: 'Ej. María López' };
-function updateSearchHint() {
-  const type = document.querySelector('input[name=stype]:checked').value;
-  document.getElementById('search-input').placeholder = SEARCH_HINTS[type] || 'Buscar';
-}
-document.querySelectorAll('input[name=stype]').forEach(r => r.addEventListener('change', updateSearchHint));
-updateSearchHint();
-
-setStatus('', 'Sin cargar');
+ajustarAlturaTabla();
+loadAll();   // los registros se cargan al entrar
