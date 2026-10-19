@@ -33,7 +33,7 @@
   --border:        var(--gray-200);
   --border-strong: var(--gray-300);
   --text:          var(--gray-900);
-  --text-muted:    var(--gray-500);
+  --text-muted:    #5F6775;
   --focus-ring:    0 0 0 3px rgba(46,120,212,.35);
 
   --shadow-xs: 0 1px 2px rgba(10,37,64,.06);
@@ -195,7 +195,7 @@ main {
   border-color: var(--blue-500); background: var(--white);
   box-shadow: 0 0 0 3px rgba(46,120,212,.15);
 }
-#search-input::placeholder { color: var(--gray-400); }
+#search-input::placeholder { color: #5F6775; }
 
 /* Selector segmentado (Folio / Expediente / Nombre) */
 .search-type {
@@ -357,6 +357,51 @@ tbody tr:has(.state-box) { cursor: default; background: none; }
 .pill-yes  { background: var(--green-bg);  color: var(--green);  }
 .pill-no   { background: var(--gray-100);  color: var(--gray-500); }
 .pill-rec  { background: var(--yellow-bg); color: var(--yellow); }
+
+/* ── Tabla de patologías (compacta) ───────────────── */
+.tabla-patologias { font-size: 12.5px; }
+.tabla-patologias th {
+  padding: 9px 8px;
+  font-size: 11px; letter-spacing: .03em;
+  cursor: help;
+}
+.tabla-patologias td { padding: 7px 8px; max-width: none; }
+.tabla-patologias th:first-child,
+.tabla-patologias td:first-child { padding-left: 14px; }
+.tabla-patologias th:last-child,
+.tabla-patologias td:last-child { padding-right: 14px; }
+.tabla-patologias .muted { color: var(--gray-500); }
+
+/* Folio arriba, expediente abajo */
+.tabla-patologias .col-id { line-height: 1.25; }
+.tabla-patologias .col-id .folio { display: block; font-weight: 700; color: var(--blue-700); }
+.tabla-patologias .col-id small { display: block; font-size: 11px; color: var(--gray-500); }
+
+.tabla-patologias .col-nombre {
+  max-width: 190px;
+  overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500; color: var(--gray-900);
+}
+.tabla-patologias .col-nivel { text-align: center; }
+.tabla-patologias .col-monto { text-align: right; }
+.tabla-patologias .cita-fecha { font-size: 11.5px; color: var(--gray-700); }
+.tabla-patologias .pill { padding: 1px 8px 1px 6px; font-size: 11px; }
+
+/* Días entre la entrega y los resultados digitales */
+.dias {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px 2px 7px; border-radius: 20px;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dias i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.dias small { font-size: 11px; font-weight: 600; }
+.dias-ok  { background: var(--green-bg); color: var(--green); }
+.dias-mal { background: var(--red-bg);   color: #B91C1C; }
+.dias-pend { border: 1px dashed currentColor; }
+.dias-na  { color: var(--gray-500); font-weight: 500; padding: 0; }
+.dias-panel { margin-top: 2px; font-size: 13px; padding: 5px 12px 5px 10px; }
+.dias-panel-nota { display: block; margin-top: 6px; font-size: 12px; color: var(--gray-500); }
 
 /* ── Pagination ──────────────────────────────────── */
 .pagination {

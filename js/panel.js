@@ -1,5 +1,5 @@
 import { FIELDS } from './config.js';
-import { escHtml } from './utils.js';
+import { escHtml, diasRecepcion, DIAS_LIMITE } from './utils.js';
 import { getEditableSections } from './auth.js';
 
 let activeRow = null;
@@ -10,6 +10,23 @@ export function getActiveRecord() { return activeRecord; }
 export function isNewRecord() { return isNew; }
 
 const LOCK_ICON = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;vertical-align:middle;margin-left:5px;opacity:.6"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
+
+function panelDias(record) {
+  const r = diasRecepcion(record);
+  let contenido;
+  if (!r) {
+    contenido = '<span class="dias dias-na">Sin fecha de entrega</span>';
+  } else {
+    const etiqueta = r.vencido ? 'Fuera de plazo' : 'Dentro de plazo';
+    const nota = r.pendiente
+      ? 'Contando hasta hoy: los resultados digitales aún no se reciben.'
+      : 'Días entre la entrega y la recepción de resultados digitales.';
+    contenido = `<span class="dias dias-panel ${r.vencido ? 'dias-mal' : 'dias-ok'}${r.pendiente ? ' dias-pend' : ''}">`
+      + `<i aria-hidden="true"></i>${r.dias} ${r.dias === 1 ? 'día' : 'días'} · ${etiqueta}</span>`
+      + `<span class="dias-panel-nota">${nota} Límite: ${DIAS_LIMITE} días.</span>`;
+  }
+  return `<div class="field-group full"><label>Días desde la entrega</label>${contenido}</div>`;
+}
 
 function buildPanelBody(record, readonlyFolio = false) {
   const body = document.querySelector('#side-panel .panel-body');
@@ -53,6 +70,9 @@ function buildPanelBody(record, readonlyFolio = false) {
       html += `<input type="text" id="fe-${f.key}" name="${f.key}" value="${escHtml(val)}"${roAttr}>`;
     }
     html += `</div>`;
+
+    // Debajo de la recepción digital: días transcurridos desde la entrega.
+    if (f.key === 'fecha_recepcion' && !isNew) html += panelDias(record);
   });
 
   html += '</div>';

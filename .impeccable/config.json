@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "patologias.html"
+        ],
+        "createdAt": "2026-10-19T19:34:56.135Z",
+        "reason": "Claude triage: the only match is the sticky header's neutral navy elevation shadow rgba(10,37,64,.10) over a light page, not a chromatic glow"
+      }
+    ]
+  }
+}

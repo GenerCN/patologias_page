@@ -20,6 +20,56 @@ export function fmtDate(val) {
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+/* Convierte el valor de la hoja en una fecha local a medianoche.
+   "2026-10-12" y "12/10/2026" se arman a mano: new Date() leería el primero
+   como UTC (un día antes en México) y no entiende el segundo. */
+export function parseLocalDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  const d = new Date(s);
+  if (isNaN(d)) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Fecha corta para la tabla: 19/10/26. */
+export function fmtDateShort(val) {
+  const d = parseLocalDate(val);
+  if (!d) return val ? String(val) : '';
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+export const DIAS_LIMITE = 10;   // días naturales entre entrega y resultados digitales
+
+/**
+ * Días naturales entre la entrega y la recepción de resultados digitales.
+ * Sin resultados todavía, cuenta hasta hoy (el número sigue creciendo).
+ * Devuelve null si no hay fecha de entrega.
+ */
+export function diasRecepcion(rec) {
+  const entrega = parseLocalDate(rec.fecha_entrega);
+  if (!entrega) return null;
+  const recibido = parseLocalDate(rec.fecha_recepcion);
+  const hoy = new Date();
+  const fin = recibido || new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const dias = Math.max(0, Math.round((fin - entrega) / 86400000));
+  return { dias, pendiente: !recibido, vencido: dias > DIAS_LIMITE };
+}
+
+export function diasBadge(rec) {
+  const r = diasRecepcion(rec);
+  if (!r) return '<span class="dias dias-na" title="Sin fecha de entrega">—</span>';
+  const estado = r.vencido ? 'Fuera de plazo' : 'Dentro de plazo';
+  const detalle = r.pendiente
+    ? `${r.dias} días desde la entrega; resultados digitales aún sin recibir`
+    : `resultados digitales recibidos ${r.dias} días después de la entrega`;
+  return `<span class="dias ${r.vencido ? 'dias-mal' : 'dias-ok'}${r.pendiente ? ' dias-pend' : ''}" title="${estado}: ${detalle}">`
+    + `<i aria-hidden="true"></i>${r.dias} d${r.pendiente ? ' <small>en espera</small>' : ''}</span>`;
+}
+
 export function fmtMoney(val) {
   if (val === '' || val === null || val === undefined) return '';
   const n = parseFloat(String(val).replace(/[^0-9.-]/g, ''));
