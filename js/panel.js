@@ -1,5 +1,5 @@
 import { FIELDS } from './config.js';
-import { escHtml, diasRecepcion, DIAS_LIMITE } from './utils.js';
+import { escHtml, diasRecepcion, DIAS_LIMITE, estadoDias, iconoDias, nivelTexto } from './utils.js';
 import { getEditableSections } from './auth.js';
 
 let activeRow = null;
@@ -117,12 +117,16 @@ function panelDias(record) {
   if (!r) {
     contenido = '<span class="dias dias-na">Sin fecha de entrega</span>';
   } else {
-    const etiqueta = r.vencido ? 'Fuera de plazo' : 'Dentro de plazo';
-    const nota = r.pendiente
-      ? 'Contando hasta hoy: los resultados digitales aún no se reciben.'
-      : 'Días entre la entrega y la recepción de resultados digitales.';
-    contenido = `<span class="dias dias-panel ${r.vencido ? 'dias-mal' : 'dias-ok'}${r.pendiente ? ' dias-pend' : ''}">`
-      + `<i aria-hidden="true"></i>${r.dias} ${r.dias === 1 ? 'día' : 'días'} · ${etiqueta}</span>`
+    const estado = estadoDias(r);
+    const etiqueta = { vencido: 'Vencido', espera: 'En espera', ok: 'Recibido a tiempo', tarde: 'Recibido fuera de plazo' }[estado];
+    const nota = {
+      vencido: 'Los resultados digitales siguen sin llegar: conviene darle seguimiento con el laboratorio.',
+      espera:  'Contando hasta hoy: los resultados digitales aún no se reciben.',
+      ok:      'Días entre la entrega y la recepción de resultados digitales.',
+      tarde:   'Los resultados llegaron, pero después del plazo.',
+    }[estado];
+    contenido = `<span class="dias dias-panel dias-${estado}">${iconoDias(estado)}`
+      + `${r.dias} ${r.dias === 1 ? 'día' : 'días'} · ${etiqueta}</span>`
       + `<span class="dias-panel-nota">${nota} Límite: ${DIAS_LIMITE} días.</span>`;
   }
   return `<div class="field-group full"><label>Días desde la entrega</label>${contenido}</div>`;
@@ -159,7 +163,7 @@ function buildPanelBody(record, readonlyFolio = false) {
     if (f.type === 'select') {
       html += `<select id="fe-${f.key}" name="${f.key}"${isReadonly ? ' disabled class="field-readonly"' : ''}>`;
       f.options.forEach(o => {
-        html += `<option value="${o}"${val == o ? ' selected' : ''}>${o || '— seleccionar —'}</option>`;
+        html += `<option value="${o}"${val == o ? ' selected' : ''}>${o ? nivelTexto(o) : 'Selecciona una opción'}</option>`;
       });
       html += `</select>`;
     } else if (f.type === 'date') {
@@ -226,8 +230,8 @@ export function openNewPanel() {
   activeRow = null;
   activeRecord = {};
 
-  document.getElementById('panel-title').textContent = 'Nuevo Registro';
-  document.getElementById('panel-subtitle').textContent = 'Complete los campos y guarde';
+  document.getElementById('panel-title').textContent = 'Nuevo registro';
+  document.getElementById('panel-subtitle').textContent = 'Llena los campos y guarda el registro';
   document.getElementById('btn-save-edit').innerHTML =
     `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M12 4v16m8-8H4"/></svg> Crear registro`;
 

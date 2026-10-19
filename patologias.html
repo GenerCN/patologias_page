@@ -20,17 +20,17 @@
 
 <!-- ── HEADER ── -->
 <header>
-  <a href="index.html" class="btn-back" title="Volver al dashboard">
+  <a href="index.html" class="btn-back" title="Volver al inicio" aria-label="Volver al inicio">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px">
       <path d="M15 19l-7-7 7-7"/>
     </svg>
   </a>
   <img src="img/logo_cmsl.png" alt="Centro Médico San Lucas" class="header-logo">
-  <span class="header-subtitle">Gestión de Patologías</span>
+  <span class="header-subtitle">Patologías</span>
   <div class="header-spacer"></div>
   <div id="status-indicator">
     <span class="dot" id="conn-dot"></span>
-    <span id="conn-label">Esperando…</span>
+    <span id="conn-label">Sin cargar</span>
   </div>
   <button id="btn-logout" class="btn-logout" title="Cerrar sesión">
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -58,9 +58,9 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input type="text" id="search-input" placeholder="Buscar…" autocomplete="off">
+        <input type="search" id="search-input" placeholder="Ej. PAT-0148" autocomplete="off" aria-label="Buscar registros por folio, expediente o nombre">
       </div>
-      <div class="search-type">
+      <div class="search-type" role="radiogroup" aria-label="Buscar por">
         <label><input type="radio" name="stype" value="folio" checked><span>Folio</span></label>
         <label><input type="radio" name="stype" value="expediente"><span>Expediente</span></label>
         <label><input type="radio" name="stype" value="nombre"><span>Nombre</span></label>
@@ -88,11 +88,11 @@
     <!-- Filtros rápidos -->
     <div class="filter-bar">
       <span class="filter-label">Filtros rápidos:</span>
-      <button class="filter-chip" id="chip-not-arrived" data-filter="not-arrived">
+      <button class="filter-chip" id="chip-not-arrived" data-filter="not-arrived" title="Registros sin fecha de resultados físicos">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path d="M20 12H4m0 0l6-6m-6 6l6 6"/>
         </svg>
-        Resultados no llegados
+        Sin resultado físico
       </button>
       <button class="filter-chip" id="chip-pending-send" data-filter="pending-send">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -105,6 +105,12 @@
           <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         Pendientes de pago
+      </button>
+      <button class="filter-chip filter-chip-alerta" id="chip-overdue" data-filter="overdue" title="Sin resultado digital y con más de 10 días desde la entrega">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17v.01"/>
+        </svg>
+        Vencidos
       </button>
     </div>
     </section>
@@ -121,17 +127,22 @@
           <thead>
             <tr>
               <th title="Folio / Expediente">Folio · Exp.</th>
-              <th title="Nombre del Paciente">Paciente</th>
-              <th title="Nivel o Tipo de Patología">Nivel</th>
+              <th title="Nombre del paciente">Paciente</th>
+              <th title="Nivel o tipo de patología">Nivel</th>
               <th title="Fecha de entrega">Entrega</th>
-              <th title="Fecha de recepción de resultados digitales">Res. digital</th>
-              <th title="Días naturales entre la entrega y los resultados digitales (verde: hasta 10 días; rojo: más de 10)">Días</th>
-              <th title="Fecha de recepción de resultados físicos">Res. físico</th>
-              <th title="Fecha Revisión del Médico">Rev. médica</th>
-              <th title="Requiere cita / Fecha de cita">Cita</th>
-              <th title="Fecha de envío a Paciente">Envío</th>
+              <th title="Fecha de resultados digitales">Res. digital</th>
+              <th id="th-dias" aria-sort="none">
+                <button type="button" class="th-sort" id="sort-dias" title="Días naturales entre la entrega y los resultados digitales (límite: 10). Clic para ordenar: más atrasados primero.">
+                  Días
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+                </button>
+              </th>
+              <th title="Fecha de resultados físicos">Res. físico</th>
+              <th title="Fecha de revisión médica">Rev. médica</th>
+              <th title="¿Requiere cita? y fecha de la cita">Cita</th>
+              <th title="Fecha de envío al paciente (o «Vía cita» si ya tiene cita agendada)">Envío</th>
               <th title="Monto">Monto</th>
-              <th title="Fecha Pago Contabilidad">Pago</th>
+              <th title="Fecha de pago">Pago</th>
             </tr>
           </thead>
           <tbody id="table-body">
@@ -140,7 +151,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                   <path d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"/>
                 </svg>
-                <p>Ingresa un término y presiona <strong>Buscar</strong>, o presiona <strong>Ver todos</strong> para cargar los registros.</p>
+                <p>Busca por folio, expediente o nombre, o carga la lista completa con <strong>Ver todos</strong>.</p>
               </div>
             </td></tr>
           </tbody>
@@ -160,7 +171,7 @@
         <h2 id="panel-title">Editar Registro</h2>
         <p id="panel-subtitle">Folio —</p>
       </div>
-      <button id="btn-close-panel" title="Cerrar">
+      <button id="btn-close-panel" title="Cerrar panel" aria-label="Cerrar panel">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
           <path d="M6 18 18 6M6 6l12 12"/>
         </svg>

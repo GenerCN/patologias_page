@@ -1,4 +1,4 @@
-import { fmtDateShort, fmtMoney, diasBadge, escHtml, requiereCita, resultadoEnviado } from './utils.js';
+import { fmtDateShort, fmtMoney, diasBadge, escHtml, requiereCita, resultadoEnviado, nivelTexto } from './utils.js';
 
 const COLSPAN = 12;
 
@@ -26,31 +26,36 @@ export function setTableLoading() {
     </td></tr>`;
 }
 
-export function showTableError(msg) {
+/* Estado de la tabla (vacío o error): qué pasó y, si aplica, la acción siguiente. */
+function stateRow(icon, message, action) {
   document.getElementById('table-body').innerHTML = `
     <tr><td colspan="${COLSPAN}">
       <div class="state-box">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
-        </svg>
-        <p>Error: ${msg}</p>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>
+        <p>${message}</p>
+        ${action ? `<button type="button" class="btn btn-outline state-action" id="state-action">${escHtml(action.label)}</button>` : ''}
       </div>
     </td></tr>`;
+  if (action) document.getElementById('state-action').addEventListener('click', action.onClick);
 }
 
-export function renderTable(records, onRowClick) {
+const ICON_ERROR = '<circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>';
+const ICON_EMPTY = '<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>';
+
+export function showTableError(msg, onRetry) {
+  stateRow(ICON_ERROR, `No se pudieron cargar los registros. ${escHtml(msg)}`,
+    onRetry ? { label: 'Reintentar', onClick: onRetry } : null);
+}
+
+/**
+ * empty: { message, action? } — lo que se muestra cuando no hay filas
+ * (búsqueda sin coincidencias, filtro vacío…). El mensaje ya viene escapado.
+ */
+export function renderTable(records, onRowClick, empty = { message: 'No hay registros para mostrar.' }) {
   const tbody = document.getElementById('table-body');
 
   if (!records.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="${COLSPAN}">
-        <div class="state-box">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <p>No se encontraron registros.</p>
-        </div>
-      </td></tr>`;
+    stateRow(ICON_EMPTY, empty.message, empty.action);
     return;
   }
 
@@ -62,7 +67,7 @@ export function renderTable(records, onRowClick) {
     <tr data-idx="${i}">
       <td class="col-id"><span class="folio">${escHtml(rec.folio || '—')}</span><small>${escHtml(rec.expediente || '—')}</small></td>
       <td class="col-nombre" title="${rec.nombre_paciente ? nombre : ''}">${nombre}</td>
-      <td class="col-nivel">${escHtml(rec.nivel_patologia || '—')}</td>
+      <td class="col-nivel">${escHtml(nivelTexto(rec.nivel_patologia) || '—')}</td>
       <td>${fecha(rec.fecha_entrega)}</td>
       <td>${fecha(rec.fecha_recepcion)}</td>
       <td class="col-dias">${diasBadge(rec)}</td>

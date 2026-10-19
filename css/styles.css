@@ -389,17 +389,48 @@ tbody tr:has(.state-box) { cursor: default; background: none; }
 
 /* Días entre la entrega y los resultados digitales */
 .dias {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 2px 9px 2px 7px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px 2px 6px; border-radius: 20px;
+  border: 1px solid transparent;
   font-size: 11.5px; font-weight: 700; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.dias i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.dias small { font-size: 11px; font-weight: 600; }
-.dias-ok  { background: var(--green-bg); color: var(--green); }
-.dias-mal { background: var(--red-bg);   color: #B91C1C; }
-.dias-pend { border: 1px dashed currentColor; }
+.dias-ico { width: 13px; height: 13px; flex-shrink: 0; }
+/* Único estado accionable: pendiente y fuera de plazo → el más fuerte */
+.dias-vencido { background: #B91C1C; color: var(--white); }
+/* Pendiente dentro de plazo */
+.dias-espera  { background: var(--green-bg); color: var(--green); border-color: #86EFAC; }
+/* Recibido a tiempo */
+.dias-ok      { background: var(--green-bg); color: var(--green); }
+/* Recibido tarde: queda registrado, pero en voz baja */
+.dias-tarde   { background: var(--white); color: #B91C1C; border-color: #FCA5A5; }
 .dias-na  { color: var(--gray-500); font-weight: 500; padding: 0; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Encabezado "Días" ordenable */
+.th-sort {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  color: inherit; cursor: pointer;
+}
+.th-sort svg { width: 12px; height: 12px; opacity: .35; transition: opacity .15s, color .15s; }
+.th-sort:hover svg { opacity: .8; }
+.th-sort:hover { color: var(--blue-700); }
+th.sorted .th-sort { color: var(--blue-700); }
+th.sorted .th-sort svg { opacity: 1; }
+
+/* Filtro de vencidos: comparte el tono de alerta del badge */
+.filter-chip-alerta svg { color: #B91C1C; }
+.filter-chip-alerta:hover { border-color: #FCA5A5; color: #991B1B; background: #FFF5F5; }
+.filter-chip-alerta:hover svg { color: #B91C1C; }
+.filter-chip-alerta.active { background: #B91C1C; border-color: #B91C1C; color: var(--white); }
+.filter-chip-alerta.active svg { color: var(--white); }
+.filter-chip-alerta.active:hover { background: #991B1B; border-color: #991B1B; }
 .dias-panel { margin-top: 2px; font-size: 13px; padding: 5px 12px 5px 10px; }
 .dias-panel-nota { display: block; margin-top: 6px; font-size: 12px; color: var(--gray-500); }
 
@@ -664,3 +695,5 @@ td:has(> .state-box) { padding: 0; max-width: none; }
   .stat-chip { max-width: none; }
   .stat-chip strong { font-size: 18px; }
 }
+.dias-panel .dias-ico { width: 15px; height: 15px; }
+.state-box .state-action { margin-top: 16px; }

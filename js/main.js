@@ -1,4 +1,4 @@
-import { setStatus, showToast, normalizeRecord, resultadoEnviado } from './utils.js';
+import { setStatus, showToast, normalizeRecord, resultadoEnviado, diasRecepcion, escHtml, plural } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable, renderPagination } from './table.js';
 import {
@@ -28,7 +28,36 @@ const FILTERS = {
   // Con cita, la fecha de cita ya cuenta como envío (ver resultadoEnviado).
   'pending-send':    r => Boolean(r.patologia_fisica) && !resultadoEnviado(r),
   'pending-payment': r => Boolean(r.patologia_fisica) && !r.fecha_pago,
+  // Sin resultado digital y con más de 10 días desde la entrega.
+  'overdue':         r => { const d = diasRecepcion(r); return Boolean(d && d.pendiente && d.vencido); },
 };
+
+let sortByDias = false;   // false: por folio (descendente); true: más días primero
+let lastSearch = null;    // { type, query } de la última búsqueda; null si se cargó todo
+
+const FILTER_NAMES = {
+  'not-arrived':     'Sin resultado físico',
+  'pending-send':    'Resultados sin enviar',
+  'pending-payment': 'Pendientes de pago',
+  'overdue':         'Vencidos',
+};
+
+/* Qué decir cuando la tabla queda vacía, según la causa. */
+function emptyState() {
+  if (activeFilter) {
+    return {
+      message: `No hay registros en «${FILTER_NAMES[activeFilter]}».`,
+      action: { label: 'Quitar filtro', onClick: () => { activeFilter = null; updateFilterUI(); currentPage = 1; renderView(); } },
+    };
+  }
+  if (lastSearch) {
+    return {
+      message: `Ningún registro coincide con «${escHtml(lastSearch.query)}».`,
+      action: { label: 'Ver todos', onClick: () => loadAll() },
+    };
+  }
+  return { message: 'No hay registros todavía.' };
+}
 
 function applyFilter(records) {
   const fn = FILTERS[activeFilter];
@@ -39,6 +68,20 @@ function compareFolioDesc(a, b) {
   return String(b.folio ?? '').localeCompare(String(a.folio ?? ''), undefined, { numeric: true, sensitivity: 'base' });
 }
 
+/* Pendientes primero (son los que aún se pueden atender), luego más días; sin entrega al final. */
+function compareDiasDesc(a, b) {
+  const da = diasRecepcion(a), db = diasRecepcion(b);
+  if (!da || !db) return (da ? -1 : 0) - (db ? -1 : 0) || compareFolioDesc(a, b);
+  if (da.pendiente !== db.pendiente) return da.pendiente ? -1 : 1;
+  return db.dias - da.dias || compareFolioDesc(a, b);
+}
+
+function updateSortUI() {
+  const th = document.getElementById('th-dias');
+  th.setAttribute('aria-sort', sortByDias ? 'descending' : 'none');
+  th.classList.toggle('sorted', sortByDias);
+}
+
 function updateFilterUI() {
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.filter === activeFilter);
@@ -46,13 +89,13 @@ function updateFilterUI() {
 }
 
 function renderView() {
-  const filtered    = applyFilter(allRecords).slice().sort(compareFolioDesc);
+  const filtered    = applyFilter(allRecords).slice().sort(sortByDias ? compareDiasDesc : compareFolioDesc);
   const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   currentPage       = Math.min(currentPage, totalPages);
   const start       = (currentPage - 1) * PAGE_SIZE;
   const pageItems   = filtered.slice(start, start + PAGE_SIZE);
 
-  renderTable(pageItems, abrirRegistro);
+  renderTable(pageItems, abrirRegistro, emptyState());
   renderPagination(document.getElementById('pagination'), {
     page: currentPage,
     totalPages,
@@ -86,13 +129,13 @@ async function loadAll({ keepPage = false } = {}) {
     const data = await apiFetch({ action: 'getAll' });
     const rows = Array.isArray(data) ? data : (data.records || data.data || []);
     allRecords  = rows.map(normalizeRecord);
+    lastSearch  = null;
     if (!keepPage) currentPage = 1;
     renderView();
-    setStatus('online', `${allRecords.length} registros`);
+    setStatus('online', plural(allRecords.length, 'registro', 'registros'));
   } catch (e) {
-    setStatus('error', 'Error de conexión');
-    showTableError(mensajeError(e));
-    showToast('No se pudieron cargar los registros.', true);
+    setStatus('error', 'Sin conexión');
+    showTableError(mensajeError(e), () => loadAll({ keepPage }));
   }
 }
 
@@ -102,13 +145,13 @@ async function loadSearch(type, query, { keepPage = false } = {}) {
     const data = await apiFetch({ action: 'search', type, query });
     const rows = Array.isArray(data) ? data : (data.records || data.data || []);
     allRecords  = rows.map(normalizeRecord);
+    lastSearch  = { type, query };
     if (!keepPage) currentPage = 1;
     renderView();
-    setStatus('online', `${allRecords.length} resultado(s)`);
+    setStatus('online', plural(allRecords.length, 'resultado', 'resultados'));
   } catch (e) {
-    setStatus('error', 'Error de conexión');
-    showTableError(mensajeError(e));
-    showToast('No se pudo completar la búsqueda.', true);
+    setStatus('error', 'Sin conexión');
+    showTableError(mensajeError(e), () => loadSearch(type, query, { keepPage }));
   }
 }
 
@@ -259,8 +302,24 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
   });
 });
 
+document.getElementById('sort-dias').addEventListener('click', () => {
+  sortByDias = !sortByDias;
+  updateSortUI();
+  currentPage = 1;
+  if (allRecords.length) renderView();
+});
+
 /* ── Init ────────────────────────────────────────── */
 if (!canCreateRecord()) {
   document.getElementById('btn-new').style.display = 'none';
 }
-setStatus('', 'Listo');
+/* El ejemplo del buscador sigue al tipo de búsqueda elegido. */
+const SEARCH_HINTS = { folio: 'Ej. PAT-0148', expediente: 'Ej. EXP-10234', nombre: 'Ej. María López' };
+function updateSearchHint() {
+  const type = document.querySelector('input[name=stype]:checked').value;
+  document.getElementById('search-input').placeholder = SEARCH_HINTS[type] || 'Buscar';
+}
+document.querySelectorAll('input[name=stype]').forEach(r => r.addEventListener('change', updateSearchHint));
+updateSearchHint();
+
+setStatus('', 'Sin cargar');
