@@ -1,4 +1,4 @@
-import { setStatus, showToast, normalizeRecord, resultadoEnviado, diasRecepcion, escHtml, plural, ETAPAS, etapaDe } from './utils.js';
+import { setStatus, showToast, normalizeRecord, diasRecepcion, escHtml, plural, ETAPAS, etapaDe, porCobrar } from './utils.js';
 import { apiFetch, apiUpdateField, apiCreateRecord } from './api.js';
 import { setTableLoading, showTableError, renderTable, renderPagination } from './table.js';
 import {
@@ -20,44 +20,50 @@ document.documentElement.classList.remove('pat-verificando');
 const PAGE_SIZE = 30;   // registros por página; el resto se navega con la paginación
 
 let allRecords   = [];
-let activeFilter = null;
 let currentPage  = 1;
 
+/* Filtros transversales: se suman a la etapa elegida y entre sí (AND).
+   El cobro corre en paralelo a las etapas, por eso no es una etapa más. */
 const FILTERS = {
-  'not-arrived':     r => !r.patologia_fisica,
-  // Con cita, la fecha de cita ya cuenta como envío (ver resultadoEnviado).
-  'pending-send':    r => Boolean(r.patologia_fisica) && !resultadoEnviado(r),
-  'pending-payment': r => Boolean(r.patologia_fisica) && !r.fecha_pago,
-  // Sin resultado digital y con más de 10 días desde la entrega.
-  'overdue':         r => { const d = diasRecepcion(r); return Boolean(d && d.pendiente && d.vencido); },
+  'pending-payment': {
+    label: 'Por cobrar',
+    hint:  'Resultado físico recibido y sin fecha de pago',
+    icon:  '<path d="M12 7v10M14.5 9.2C14 8.5 13.1 8 12 8c-1.4 0-2.5.8-2.5 2s1.1 1.7 2.5 2 2.5.8 2.5 2-1.1 2-2.5 2c-1.1 0-2-.5-2.5-1.2"/><circle cx="12" cy="12" r="9"/>',
+    test:  r => porCobrar(r),
+  },
+  'overdue': {
+    label: 'Vencidos',
+    hint:  'Sin resultado digital y con más de 10 días desde la entrega',
+    icon:  '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17v.01"/>',
+    test:  r => { const d = diasRecepcion(r); return Boolean(d && d.pendiente && d.vencido); },
+  },
 };
+const activeFilters = new Set();   // claves de FILTERS activas
 
 let sortByDias = false;   // false: por folio (descendente); true: más días primero
 let lastSearch = null;    // { type, query } de la última búsqueda; null si se cargó todo
-let stageFilter = null;   // clave de ETAPAS seleccionada en la barra de etapas; se combina con los chips
+let stageFilter = null;   // clave de ETAPAS seleccionada en la barra
 
-const FILTER_NAMES = {
-  'not-arrived':     'Sin resultado físico',
-  'pending-send':    'Resultados sin enviar',
-  'pending-payment': 'Pendientes de pago',
-  'overdue':         'Vencidos',
-};
+function nombresFiltros() {
+  return [...activeFilters].map(k => `«${FILTERS[k].label}»`).join(' y ');
+}
+
+function quitarFiltros() {
+  stageFilter = null;
+  activeFilters.clear();
+  currentPage = 1;
+  renderView();
+}
 
 /* Qué decir cuando la tabla queda vacía, según la causa. */
 function emptyState() {
-  if (stageFilter) {
-    const etapa = ETAPAS.find(e => e.key === stageFilter).label;
+  if (stageFilter || activeFilters.size) {
+    const partes = [];
+    if (stageFilter) partes.push(`en «${ETAPAS.find(e => e.key === stageFilter).label}»`);
+    if (activeFilters.size) partes.push(`con ${nombresFiltros()}`);
     return {
-      message: activeFilter
-        ? `No hay registros en «${etapa}» con el filtro «${FILTER_NAMES[activeFilter]}».`
-        : `No hay registros en «${etapa}».`,
-      action: { label: 'Ver todas las etapas', onClick: () => { stageFilter = null; currentPage = 1; renderView(); } },
-    };
-  }
-  if (activeFilter) {
-    return {
-      message: `No hay registros en «${FILTER_NAMES[activeFilter]}».`,
-      action: { label: 'Quitar filtro', onClick: () => { activeFilter = null; updateFilterUI(); currentPage = 1; renderView(); } },
+      message: `No hay registros ${partes.join(' ')}.`,
+      action: { label: 'Quitar filtros', onClick: quitarFiltros },
     };
   }
   if (lastSearch) {
@@ -69,9 +75,9 @@ function emptyState() {
   return { message: 'No hay registros todavía.' };
 }
 
-function applyFilter(records) {
-  const fn = FILTERS[activeFilter];
-  return fn ? records.filter(fn) : records;
+function applyFilter(records, except = null) {
+  const tests = [...activeFilters].filter(k => k !== except).map(k => FILTERS[k].test);
+  return tests.length ? records.filter(r => tests.every(t => t(r))) : records;
 }
 
 function compareFolioDesc(a, b) {
@@ -92,24 +98,33 @@ function updateSortUI() {
   th.classList.toggle('sorted', sortByDias);
 }
 
-function updateFilterUI() {
-  document.querySelectorAll('.filter-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.filter === activeFilter);
-  });
-}
-
-/* Barra de etapas: el conteo respeta el chip activo; pulsar una etapa filtra la tabla. */
+/* Barra única: etapas (excluyentes, suman "Todos") | filtros transversales con conteo.
+   Los conteos de etapa respetan los filtros activos; el de cada filtro respeta la etapa
+   elegida y el otro filtro, así cada número dice cuántos quedarían al pulsarlo. */
 function renderStageBar(base) {
   const counts = Object.fromEntries(ETAPAS.map(e => [e.key, 0]));
   base.forEach(r => { counts[etapaDe(r).key]++; });
-  const boton = (key, label, n, hint) => {
+  const etapa = (key, label, n, hint) => {
     const on = stageFilter === key;
     return `<button type="button" class="etapa-filtro${on ? ' active' : ''}${n === 0 ? ' vacia' : ''}" data-etapa="${key ?? ''}" aria-pressed="${on}" title="${hint}">`
       + `<span>${label}</span><strong>${n}</strong></button>`;
   };
+  const enEtapa = r => !stageFilter || etapaDe(r).key === stageFilter;
+  const filtro = key => {
+    const f = FILTERS[key];
+    const on = activeFilters.has(key);
+    const n = applyFilter(allRecords, key).filter(r => enEtapa(r) && f.test(r)).length;
+    return `<button type="button" class="filtro-toggle filtro-${key}${on ? ' active' : ''}${n === 0 ? ' vacia' : ''}" data-filtro="${key}" aria-pressed="${on}" title="${f.hint}">`
+      + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${f.icon}</svg>`
+      + `<span>${f.label}</span><strong>${n}</strong></button>`;
+  };
+  const hayFiltros = stageFilter || activeFilters.size;
   const bar = document.getElementById('stats-bar');
-  bar.innerHTML = boton(null, 'Todos', base.length, 'Todas las etapas')
-    + ETAPAS.map(e => boton(e.key, e.label, counts[e.key], e.hint)).join('');
+  bar.innerHTML = etapa(null, 'Todos', base.length, 'Todas las etapas')
+    + ETAPAS.map(e => etapa(e.key, e.label, counts[e.key], e.hint)).join('')
+    + '<span class="etapas-sep" aria-hidden="true"></span>'
+    + Object.keys(FILTERS).map(filtro).join('')
+    + (hayFiltros ? '<button type="button" class="quitar-filtros" data-quitar="1">Quitar filtros</button>' : '');
   bar.style.display = 'flex';
 }
 
@@ -343,21 +358,6 @@ window.addEventListener('beforeunload', e => {
   if (isPanelBusy() || isDirty()) { e.preventDefault(); e.returnValue = ''; }
 });
 
-document.querySelectorAll('.filter-chip').forEach(chip => {
-  chip.addEventListener('click', async () => {
-    const filter = chip.dataset.filter;
-    activeFilter = activeFilter === filter ? null : filter;
-    updateFilterUI();
-    currentPage = 1;
-
-    if (allRecords.length === 0) {
-      await loadAll();
-    } else {
-      renderView();
-    }
-  });
-});
-
 document.getElementById('sort-dias').addEventListener('click', () => {
   sortByDias = !sortByDias;
   updateSortUI();
@@ -366,10 +366,17 @@ document.getElementById('sort-dias').addEventListener('click', () => {
 });
 
 document.getElementById('stats-bar').addEventListener('click', e => {
-  const btn = e.target.closest('.etapa-filtro');
-  if (!btn) return;
-  const key = btn.dataset.etapa || null;
-  stageFilter = stageFilter === key ? null : key;
+  if (e.target.closest('[data-quitar]')) { quitarFiltros(); return; }
+  const filtro = e.target.closest('.filtro-toggle');
+  if (filtro) {
+    const key = filtro.dataset.filtro;
+    if (activeFilters.has(key)) activeFilters.delete(key); else activeFilters.add(key);
+  } else {
+    const btn = e.target.closest('.etapa-filtro');
+    if (!btn) return;
+    const key = btn.dataset.etapa || null;
+    stageFilter = stageFilter === key ? null : key;
+  }
   currentPage = 1;
   renderView();
 });
