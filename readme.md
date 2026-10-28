@@ -8,6 +8,7 @@ Módulos actuales:
 | :--- | :--- | :--- |
 | **Patologías** | `patologias.html` | Registro y seguimiento de estudios de patología. |
 | **Bitácora de Expedientes** | `bitacora.html` | Rastreo del expediente clínico físico entre departamentos y tiempo que permanece en cada uno. Ver [sección 6](#6-módulo-bitácora-de-expedientes). |
+| **Anexo 2 · Inventarios** | *(enlace externo)* | Web app aparte, con cuenta de Google. Ver [sección 7](#7-enlace-anexo-2--inventarios). |
 
 ---
 
@@ -468,3 +469,11 @@ La versión anterior terminaba el ciclo con el estado `Cerrado` y dejaba el expe
 * se agrega el paso `Admisión → Archivo` con la **fecha de cierre original**, así el tiempo en archivo se mide desde ese día.
 
 Es idempotente: correrla otra vez no encuentra nada que migrar. Aun sin migrar, el backend traduce `Cerrado` al leer, así que las filas viejas siguen funcionando; la migración solo deja la hoja limpia y agrega el paso de archivo para medir su tiempo. El backend también sigue aceptando las acciones viejas `bitCerrar`/`bitCerrarLote` para que un navegador con la página anterior en caché no falle durante el despliegue.
+
+---
+
+## 7. Enlace: Anexo 2 · Inventarios
+
+El Anexo 2 (asignación de bienes de uso personal y compartido, con firma en tableta Wacom) **no forma parte de este sitio ni de su Apps Script**. Es una web app independiente, en el proyecto `C:\Users\Sistemas\Documents\AppScript\anexo2_app`, a la que se entra con la cuenta de Google @medsanlucas.com. Los correos con acceso se administran en la hoja `Accesos` de su propia base de datos.
+
+Este sitio solo muestra una tarjeta en el dashboard que abre esa web app en otra pestaña. La URL va en `ANEXO2_URL` de `js/config.js`: mientras esté vacía, la tarjeta aparece como *Por publicar*. La tarjeta se muestra a todos los usuarios del sitio porque el acceso lo decide la web app según la cuenta de Google, no el usuario de este sitio.

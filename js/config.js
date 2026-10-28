@@ -1,5 +1,10 @@
 export const API_URL = 'https://script.google.com/macros/s/AKfycbyfVxc0BWrZDIJtMBlShXxrL_JXpD3ZGzBP79hIc44p-ZXvTqQ3L4xbMxZn0HSIm2Su/exec';
 
+/* Anexo 2 · Inventarios es una web app aparte (proyecto anexo2_app) a la que
+   se entra con la cuenta de Google @medsanlucas.com. Pega aquí la URL /exec
+   de su implementación; vacía, la tarjeta del dashboard sale deshabilitada. */
+export const ANEXO2_URL = 'https://script.google.com/a/macros/medsanlucas.com/s/AKfycbxSQ97pRW4vEAzqJZQZ9DxCID6VkGzD6fxrKxazevAMemLh32mWmG9lUgAho3KC1sdk/exec';
+
 /* Etiquetas anteriores: normalizeRecord las sigue aceptando como respaldo
    para encontrar la columna en la hoja si KEY_MAP no coincide. */
 export const LABEL_ALIASES = {

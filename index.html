@@ -256,6 +256,29 @@
       </span>
     </a>
 
+    <!-- Anexo 2 · Inventarios: web app aparte, con cuenta de Google (ver ANEXO2_URL en js/config.js) -->
+    <a class="module-card" id="card-anexo2" target="_blank" rel="noopener">
+      <div class="module-top">
+        <div class="module-icon icon-yellow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9 2 2 4-4"/>
+          </svg>
+        </div>
+        <span class="module-badge" id="badge-anexo2">Activo</span>
+      </div>
+      <div class="module-info">
+        <h3>Anexo 2 · Inventarios</h3>
+        <p>Asignación de bienes de uso personal y compartido, con firma electrónica. Se abre con tu cuenta @medsanlucas.com autorizada.</p>
+      </div>
+      <ul class="module-features">
+        <li>Solicitudes de RH</li><li>Padrón de bienes</li><li>Firma con tableta</li><li>PDF firmado</li>
+      </ul>
+      <span class="module-cta">
+        Abrir en otra pestaña
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path d="M14 4h6v6m0-6L10 14M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/></svg>
+      </span>
+    </a>
+
     <!-- Próximamente -->
     <div class="module-card disabled">
       <div class="module-top">
@@ -278,6 +301,7 @@
 <script type="module">
   import { getSession, logout, tieneAccesoPatologias } from './js/auth.js';
   import { tieneAccesoBitacora } from './js/bitacora/config.js';
+  import { ANEXO2_URL } from './js/config.js';
 
   const session = getSession();
   if (session) {
@@ -300,8 +324,20 @@
     document.getElementById('card-bitacora').remove();
   }
 
-  // Un usuario dado de alta en la hoja pero sin módulos asignados.
-  if (!document.querySelector('.modules-grid a.module-card')) {
+  /* Anexo 2 se ve para todos: el acceso lo decide la propia web app según
+     la cuenta de Google, no el usuario de este sitio. */
+  const cardAnexo2 = document.getElementById('card-anexo2');
+  if (ANEXO2_URL) {
+    cardAnexo2.href = ANEXO2_URL;
+  } else {
+    cardAnexo2.classList.add('disabled');
+    cardAnexo2.removeAttribute('target');
+    document.getElementById('badge-anexo2').className = 'module-badge badge-soon';
+    document.getElementById('badge-anexo2').textContent = 'Por publicar';
+  }
+
+  // Un usuario dado de alta en la hoja pero sin módulos asignados (Anexo 2 no cuenta).
+  if (!document.querySelector('.modules-grid a.module-card:not(#card-anexo2)')) {
     document.querySelector('.dashboard-greeting p').textContent =
       'Tu usuario no tiene módulos asignados. Pide a Sistemas que te dé acceso.';
   }
