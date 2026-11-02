@@ -87,10 +87,29 @@ export function porCobrar(rec) {
   return Boolean(rec.patologia_fisica) && !rec.fecha_pago;
 }
 
-export const DIAS_LIMITE = 10;   // días naturales entre entrega y resultados digitales
+export const DIAS_LIMITE = 10;   // días hábiles (lunes a viernes) entre entrega y resultados digitales
 
 /**
- * Días naturales entre la entrega y la recepción de resultados digitales.
+ * Días hábiles (lunes a viernes) después de `desde` y hasta `hasta`, incluido.
+ * Entregado el viernes y recibido el lunes = 1. No descuenta días feriados.
+ */
+export function diasHabiles(desde, hasta) {
+  if (hasta <= desde) return 0;
+  const totales = Math.round((hasta - desde) / 86400000);
+  const semanas = Math.floor(totales / 7);
+  let habiles = semanas * 5;
+  const d = new Date(desde);
+  d.setDate(d.getDate() + semanas * 7);
+  for (let i = semanas * 7; i < totales; i++) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();               // 0 = domingo, 6 = sábado
+    if (dow !== 0 && dow !== 6) habiles++;
+  }
+  return habiles;
+}
+
+/**
+ * Días hábiles entre la entrega y la recepción de resultados digitales.
  * Sin resultados todavía, cuenta hasta hoy (el número sigue creciendo).
  * Devuelve null si no hay fecha de entrega.
  */
@@ -100,7 +119,7 @@ export function diasRecepcion(rec) {
   const recibido = parseLocalDate(rec.fecha_recepcion);
   const hoy = new Date();
   const fin = recibido || new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const dias = Math.max(0, Math.round((fin - entrega) / 86400000));
+  const dias = diasHabiles(entrega, fin);
   return { dias, pendiente: !recibido, vencido: dias > DIAS_LIMITE };
 }
 
@@ -121,9 +140,9 @@ export function estadoDias(r) {
 }
 
 export function textoEstadoDias(r) {
-  const d = `${r.dias} ${r.dias === 1 ? 'día' : 'días'}`;
+  const d = `${r.dias} ${r.dias === 1 ? 'día hábil' : 'días hábiles'}`;
   switch (estadoDias(r)) {
-    case 'vencido': return `Vencido: ${d} sin resultado digital (límite ${DIAS_LIMITE})`;
+    case 'vencido': return `Vencido: ${d} sin resultado digital (límite ${DIAS_LIMITE} días hábiles)`;
     case 'espera':  return `En espera: ${d} desde la entrega, dentro del plazo`;
     case 'tarde':   return `Recibido fuera de plazo: ${d} después de la entrega`;
     default:        return `Recibido a tiempo: ${d} después de la entrega`;

@@ -33,7 +33,7 @@ const FILTERS = {
   },
   'overdue': {
     label: 'Vencidos',
-    hint:  'Sin resultado digital y con más de 10 días desde la entrega',
+    hint:  'Sin resultado digital y con más de 10 días hábiles desde la entrega',
     icon:  '<path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.2M12 17v.01"/>',
     test:  r => { const d = diasRecepcion(r); return Boolean(d && d.pendiente && d.vencido); },
   },
