@@ -126,10 +126,10 @@ function panelDias(record) {
       tarde:   'Los resultados llegaron, pero después del plazo.',
     }[estado];
     contenido = `<span class="dias dias-panel dias-${estado}">${iconoDias(estado)}`
-      + `${r.dias} ${r.dias === 1 ? 'día' : 'días'} · ${etiqueta}</span>`
-      + `<span class="dias-panel-nota">${nota} Límite: ${DIAS_LIMITE} días.</span>`;
+      + `${r.dias} ${r.dias === 1 ? 'día hábil' : 'días hábiles'} · ${etiqueta}</span>`
+      + `<span class="dias-panel-nota">${nota} Límite: ${DIAS_LIMITE} días hábiles (lunes a viernes).</span>`;
   }
-  return `<div class="field-group full"><label>Días desde la entrega</label>${contenido}</div>`;
+  return `<div class="field-group full"><label>Días hábiles desde la entrega</label>${contenido}</div>`;
 }
 
 function buildPanelBody(record, readonlyFolio = false) {

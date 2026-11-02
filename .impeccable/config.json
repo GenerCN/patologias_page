@@ -11,6 +11,15 @@
         ],
         "createdAt": "2026-10-19T19:34:56.135Z",
         "reason": "Claude triage: the only match is the sticky header's neutral navy elevation shadow rgba(10,37,64,.10) over a light page, not a chromatic glow"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "patologias.html"
+        ],
+        "createdAt": "2026-11-02T15:36:22.356Z",
+        "reason": "Claude triage: .table-card is an edge-to-edge wrapper for a full-bleed table; text is inset by cell padding (8–14px). Confirmed false positive by two independent critique runs and the rendered-page scan"
       }
     ]
   }
